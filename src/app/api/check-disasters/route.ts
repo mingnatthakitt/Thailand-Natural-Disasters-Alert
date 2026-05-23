@@ -27,19 +27,6 @@ interface EONETEvent {
   sources: { id: string; url: string }[];
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function isInRegion(lat: number, lng: number) {
-  return lat >= REGION.minLat && lat <= REGION.maxLat && lng >= REGION.minLng && lng <= REGION.maxLng;
-}
-
-function toICT(iso: string) {
-  return new Date(iso).toLocaleString('en-US', {
-    timeZone: 'Asia/Bangkok',
-    month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  }) + ' ICT';
-}
-
 interface DisasterEvent {
   id: string;
   type: 'wildfire' | 'earthquake';
@@ -53,6 +40,43 @@ interface DisasterEvent {
   location: string;
 }
 
+function isInRegion(lat: number, lng: number) {
+  return lat >= REGION.minLat && lat <= REGION.maxLat && lng >= REGION.minLng && lng <= REGION.maxLng;
+}
+
+function toICT(iso: string) {
+  return new Date(iso).toLocaleString('en-US', {
+    timeZone: 'Asia/Bangkok',
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }) + ' ICT';
+}
+
+// Build Discord embed payloads
+function buildEmbeds(events: DisasterEvent[]) {
+  return events.map((e) => {
+    const color = e.type === 'wildfire' ? 0xe67e22 : 0xff0000;
+    const emoji = e.type === 'wildfire' ? '🔥' : '⚠️';
+    const title = e.type === 'wildfire' ? `${emoji} Wildfire Alert` : `${emoji} Seismic Activity Detected`;
+
+    return {
+      color,
+      title,
+      description: `**${e.title}**`,
+      fields: [
+        { name: 'Location', value: e.location, inline: true },
+        { name: 'Local Time', value: toICT(e.timestamp), inline: true },
+        ...(e.mag != null ? [{ name: 'Magnitude', value: `M${e.mag.toFixed(1)}`, inline: true }] : []),
+        ...(e.depth != null ? [{ name: 'Depth', value: `${e.depth.toFixed(1)} km`, inline: true }] : []),
+        { name: 'Coordinates', value: `${e.lat.toFixed(4)}°N, ${e.lng.toFixed(4)}°E`, inline: true },
+      ],
+      url: e.link,
+      timestamp: e.timestamp,
+      footer: { text: 'Siam & Greater Indochina Disaster Watch · NASA EONET & USGS' },
+    };
+  });
+}
+
 async function fetchEarthquakes(): Promise<DisasterEvent[]> {
   const starttime = new Date(Date.now() - 45 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
   const url =
@@ -60,7 +84,7 @@ async function fetchEarthquakes(): Promise<DisasterEvent[]> {
     `&minlatitude=${REGION.minLat}&maxlatitude=${REGION.maxLat}` +
     `&minlongitude=${REGION.minLng}&maxlongitude=${REGION.maxLng}&minmagnitude=2`;
 
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`USGS error: ${res.status}`);
   const data = await res.json() as { features: USGSFeature[] };
 
@@ -83,7 +107,8 @@ async function fetchEarthquakes(): Promise<DisasterEvent[]> {
 async function fetchWildfires(): Promise<DisasterEvent[]> {
   const bbox = `${REGION.minLng},${REGION.maxLat},${REGION.maxLng},${REGION.minLat}`;
   const res = await fetch(
-    `https://eonet.arc.nasa.gov/api/v3/events?bbox=${bbox}&status=open&category=wildfires&limit=50`,
+    `https://eonet.gsfc.nasa.gov/api/v3/events?bbox=${bbox}&status=open&category=wildfires&limit=50`,
+    { signal: AbortSignal.timeout(8000) },
   );
   if (!res.ok) throw new Error(`EONET error: ${res.status}`);
   const data = await res.json() as { events: EONETEvent[] };
@@ -102,43 +127,10 @@ async function fetchWildfires(): Promise<DisasterEvent[]> {
         title: e.title || 'Wildfire Detected',
         lat, lng,
         timestamp: e.startDate,
-        link: e.sources?.[0]?.url || 'https://eonet.arc.nasa.gov',
+        link: e.sources?.[0]?.url || 'https://eonet.gsfc.nasa.gov',
         location: e.title?.split('(')[0]?.trim() || 'Indochina region',
       };
     });
-}
-
-// ─── Discord Embed ────────────────────────────────────────────────────────────
-async function notifyDiscord(events: DisasterEvent[], webhookUrl: string) {
-  if (!webhookUrl || events.length === 0) return;
-
-  const embeds = events.map((e) => {
-    const color = e.type === 'wildfire' ? 0xe67e22 : 0xff0000;
-    const emoji = e.type === 'wildfire' ? '🔥' : '⚠️';
-    const title = e.type === 'wildfire' ? `${emoji} Wildfire Alert` : `${emoji} Seismic Activity Detected`;
-
-    return {
-      color,
-      title,
-      description: `**${e.title}**`,
-      fields: [
-        { name: 'Location', value: e.location, inline: true },
-        { name: 'Local Time', value: toICT(e.timestamp), inline: true },
-        ...(e.mag != null ? [{ name: 'Magnitude', value: `M${e.mag.toFixed(1)}`, inline: true }] : []),
-        ...(e.depth != null ? [{ name: 'Depth', value: `${e.depth.toFixed(1)} km`, inline: true }] : []),
-        { name: 'Coordinates', value: `${e.lat.toFixed(4)}°N, ${e.lng.toFixed(4)}°E`, inline: true },
-      ],
-      url: e.link,
-      timestamp: e.timestamp,
-      footer: { text: 'Siam & Greater Indochina Disaster Watch · NASA EONET & USGS' },
-    };
-  });
-
-  await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ embeds }),
-  });
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -148,8 +140,9 @@ export async function GET(req: Request) {
     return Response.json({ error: 'DISCORD_WEBHOOK_URL not configured' }, { status: 500 });
   }
 
-  // Test mode: send a fake alert to verify Discord webhook is working
   const url = new URL(req.url);
+
+  // Test mode: send a fake alert to verify Discord webhook is working
   if (url.searchParams.get('test') === '1') {
     const testEvent: DisasterEvent = {
       id: 'test_001',
@@ -163,22 +156,49 @@ export async function GET(req: Request) {
       link: 'https://earthquake.usgs.gov/',
       location: 'Gulf of Thailand (Test)',
     };
-    await notifyDiscord([testEvent], webhookUrl);
-    return Response.json({ tested: true, event: testEvent });
+
+    const result = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: buildEmbeds([testEvent]) }),
+    }).catch((err) => ({ ok: false, error: err.message })) as { ok: boolean; error?: string };
+
+    if (!result.ok) {
+      return Response.json({ error: `Discord webhook error: ${result.error}` }, { status: 502 });
+    }
+
+    return Response.json({ tested: true, event: testEvent, discord: 'sent' });
   }
 
-  let earthquakes: DisasterEvent[] = [];
-  let wildfires: DisasterEvent[] = [];
+  // Real mode: fetch with graceful failure — if one API fails, use the other
+  const [eqResult, fwResult] = await Promise.allSettled([
+    fetchEarthquakes(),
+    fetchWildfires(),
+  ]);
 
-  try {
-    [earthquakes, wildfires] = await Promise.all([fetchEarthquakes(), fetchWildfires()]);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    return Response.json({ error: message }, { status: 502 });
+  const earthquakes = eqResult.status === 'fulfilled' ? eqResult.value : [];
+  const wildfires = fwResult.status === 'fulfilled' ? fwResult.value : [];
+
+  if (eqResult.status === 'rejected') {
+    console.error('USGS fetch failed:', eqResult.reason);
+  }
+  if (fwResult.status === 'rejected') {
+    console.error('EONET fetch failed:', fwResult.reason);
   }
 
   const events = [...earthquakes, ...wildfires];
-  await notifyDiscord(events, webhookUrl);
+  const errors: string[] = [
+    ...(eqResult.status === 'rejected' ? [String(eqResult.reason)] : []),
+    ...(fwResult.status === 'rejected' ? [String(fwResult.reason)] : []),
+  ];
 
-  return Response.json({ checked: events.length, events });
+  if (events.length > 0) {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: buildEmbeds(events) }),
+    }).catch((e) => console.error('Discord webhook failed:', e.message));
+  }
+
+  return Response.json({ checked: events.length, events, errors: errors.length ? errors : undefined });
 }

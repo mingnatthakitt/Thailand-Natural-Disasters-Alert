@@ -64,7 +64,7 @@ async function fetchEarthquakes(): Promise<UnifiedDisasterEvent[]> {
 
 async function fetchWildfires(): Promise<UnifiedDisasterEvent[]> {
   const res = await fetch(
-    'https://eonet.arc.nasa.gov/api/v3/events?category=wildfires&status=active&limit=50',
+    'https://eonet.gsfc.nasa.gov/api/v3/events?category=wildfires&status=active&limit=50',
     { next: { revalidate: 300 } },
   );
   if (!res.ok) throw new Error(`NASA EONET API error: ${res.status}`);
