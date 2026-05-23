@@ -142,10 +142,29 @@ async function notifyDiscord(events: DisasterEvent[], webhookUrl: string) {
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
-export async function GET() {
+export async function GET(req: Request) {
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
   if (!webhookUrl) {
     return Response.json({ error: 'DISCORD_WEBHOOK_URL not configured' }, { status: 500 });
+  }
+
+  // Test mode: send a fake alert to verify Discord webhook is working
+  const url = new URL(req.url);
+  if (url.searchParams.get('test') === '1') {
+    const testEvent: DisasterEvent = {
+      id: 'test_001',
+      type: 'earthquake',
+      title: 'M 4.2 — Test Alert, Gulf of Thailand',
+      mag: 4.2,
+      lat: 9.1234,
+      lng: 99.5678,
+      depth: 12.5,
+      timestamp: new Date().toISOString(),
+      link: 'https://earthquake.usgs.gov/',
+      location: 'Gulf of Thailand (Test)',
+    };
+    await notifyDiscord([testEvent], webhookUrl);
+    return Response.json({ tested: true, event: testEvent });
   }
 
   let earthquakes: DisasterEvent[] = [];
