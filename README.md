@@ -10,11 +10,13 @@
 [![NASA EONET](https://img.shields.io/badge/data-NASA%20EONET-2E4057?style=flat&logo=nasa&logoColor=white)](https://eonet.gsfc.nasa.gov/)
 [![USGS](https://img.shields.io/badge/data-USGS-3E7D1C?style=flat&logo=usgs&logoColor=white)](https://earthquake.usgs.gov/)
 
+</br>
 <div align="center">
   <a href="https://vercel.com/natthakitt-prapunwattanas-projects/thailand-natural-disasters-alert">
     <img src="https://img.shields.io/badge/Check out the dashboard-Vercel-black?style=for-the-badge&logo=vercel&logoColor=white" alt="Dash boardlink" />
   </a>
 </div>
+</br>
 
 **Near-real-time monitoring of wildfires and earthquakes across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Malaysia.**
 
