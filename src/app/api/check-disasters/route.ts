@@ -15,33 +15,54 @@ interface DisasterEvent {
   location: string;
 }
 
-// Build Discord embed payloads
-function buildEmbeds(events: DisasterEvent[]) {
-  return events.map((e) => {
-    const color = e.type === 'wildfire' ? 0xe67e22 : e.type === 'storm' ? 0x0099ff : 0xff0000;
-    const emoji = e.type === 'wildfire' ? '🔥' : e.type === 'storm' ? '🌪️' : '⚠️';
-    const title = e.type === 'wildfire'
-      ? `${emoji} Wildfire Alert`
-      : e.type === 'storm'
-        ? `${emoji} Tropical Cyclone Alert`
-        : `${emoji} Seismic Activity Detected`;
+// Build Discord message payloads
+function buildPayload(events: DisasterEvent[]) {
+  return {
+    embeds: events.map((e) => {
+      const color = e.type === 'wildfire' ? 0xe67e22 : e.type === 'storm' ? 0x0099ff : 0xff0000;
+      const emoji = e.type === 'wildfire' ? '🔥' : e.type === 'storm' ? '🌪️' : '⚠️';
+      const title = e.type === 'wildfire'
+        ? `${emoji} Wildfire Alert`
+        : e.type === 'storm'
+          ? `${emoji} Tropical Cyclone Alert`
+          : `${emoji} Seismic Activity Detected`;
 
-    return {
-      color,
-      title,
-      description: `**${e.title}**`,
-      fields: [
-        { name: 'Location', value: e.location, inline: true },
-        { name: 'Local Time', value: toICT(e.timestamp), inline: true },
-        ...(e.mag != null ? [{ name: e.type === 'storm' ? 'Wind Speed' : 'Magnitude', value: e.type === 'storm' ? `${e.mag} kt` : `M${e.mag.toFixed(1)}`, inline: true }] : []),
-        ...(e.depth != null ? [{ name: 'Depth', value: `${e.depth.toFixed(1)} km`, inline: true }] : []),
-        { name: 'Coordinates', value: `${e.lat.toFixed(4)}°N, ${e.lng.toFixed(4)}°E`, inline: true },
-      ],
-      url: e.link,
-      timestamp: e.timestamp,
-      footer: { text: 'Siam & Greater Indochina Disaster Watch · NASA EONET & USGS' },
-    };
+      return {
+        color,
+        title,
+        description: `**${e.title}**`,
+        fields: [
+          { name: 'Location', value: e.location, inline: true },
+          { name: 'Local Time', value: toICT(e.timestamp), inline: true },
+          ...(e.mag != null ? [{ name: e.type === 'storm' ? 'Wind Speed' : 'Magnitude', value: e.type === 'storm' ? `${e.mag} kt` : `M${e.mag.toFixed(1)}`, inline: true }] : []),
+          ...(e.depth != null ? [{ name: 'Depth', value: `${e.depth.toFixed(1)} km`, inline: true }] : []),
+          { name: 'Coordinates', value: `${e.lat.toFixed(4)}°N, ${e.lng.toFixed(4)}°E`, inline: true },
+        ],
+        url: e.link,
+        timestamp: e.timestamp,
+        footer: { text: 'Siam & Greater Indochina Disaster Watch · NASA EONET & USGS' },
+      };
+    }),
+  };
+}
+
+// Send message via Discord bot (REST API v10)
+async function sendToDiscord(channelId: string, botToken: string, payload: ReturnType<typeof buildPayload>) {
+  const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bot ${botToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
   });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Discord API ${res.status}: ${text}`);
+  }
+
+  return res.json();
 }
 
 async function fetchEarthquakes(): Promise<DisasterEvent[]> {
@@ -137,14 +158,19 @@ async function fetchStorms(): Promise<DisasterEvent[]> {
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 export async function GET(req: Request) {
-  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
-  if (!webhookUrl) {
-    return Response.json({ error: 'DISCORD_WEBHOOK_URL not configured' }, { status: 500 });
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+  const channelId = process.env.DISCORD_CHANNEL_ID;
+
+  if (!botToken || !channelId) {
+    return Response.json(
+      { error: 'DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID must be configured' },
+      { status: 500 },
+    );
   }
 
   const url = new URL(req.url);
 
-  // Test mode: verify Discord webhook is working
+  // Test mode: verify bot can send messages
   if (url.searchParams.get('test') === '1') {
     const testEvent: DisasterEvent = {
       id: 'test_001',
@@ -159,17 +185,12 @@ export async function GET(req: Request) {
       location: 'Gulf of Thailand (Test)',
     };
 
-    const result = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ embeds: buildEmbeds([testEvent]) }),
-    }).catch((err) => ({ ok: false, error: err.message })) as { ok: boolean; error?: string };
-
-    if (!result.ok) {
-      return Response.json({ error: `Discord webhook error: ${result.error}` }, { status: 502 });
+    try {
+      await sendToDiscord(channelId, botToken, buildPayload([testEvent]));
+      return Response.json({ tested: true, event: testEvent, discord: 'sent' });
+    } catch (err) {
+      return Response.json({ error: `Discord bot error: ${err}` }, { status: 502 });
     }
-
-    return Response.json({ tested: true, event: testEvent, discord: 'sent' });
   }
 
   // Real mode: fetch with graceful failure
@@ -199,11 +220,8 @@ export async function GET(req: Request) {
   const recent = events.filter((e) => Date.now() - new Date(e.timestamp).getTime() < FRESH_WINDOW_MS);
 
   if (recent.length > 0) {
-    await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ embeds: buildEmbeds(recent) }),
-    }).catch((e) => console.error('Discord webhook failed:', e.message));
+    await sendToDiscord(channelId, botToken, buildPayload(recent))
+      .catch((e) => console.error('Discord bot failed:', e.message));
   }
 
   return Response.json({ checked: events.length, fresh: recent.length, events, errors: errors.length ? errors : undefined });
