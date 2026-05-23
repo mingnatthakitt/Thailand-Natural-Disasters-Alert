@@ -18,9 +18,9 @@
 </div>
 </br>
 
-**Near-real-time monitoring of wildfires and earthquakes across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Malaysia.**
+**Near-real-time monitoring of wildfires, earthquakes, and tropical cyclones across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Malaysia.**
 
-Powered by NASA EONET satellite thermal anomaly data and USGS seismic event feeds, with instant Discord push notifications for new threats.
+Powered by NASA EONET satellite thermal anomaly data and tropical cyclone feeds, USGS seismic event feeds, with instant Discord push notifications for new threats.
 
 <p align="center">
   <img src="public/dashboard.png" width="80%" />
@@ -34,19 +34,20 @@ Powered by NASA EONET satellite thermal anomaly data and USGS seismic event feed
 - **Dark CartoDB tile layer** centered on the Greater Indochina region (`95°E–107.5°E`, `4°N–22.5°N`)
 - **Fire markers** — pulsing orange radial rings for active wildfires and thermal anomalies from NASA MODIS/VIIRS satellite data
 - **Seismic markers** — size-scaled circles (M2+ earthquakes) with magnitude label, color-coded by intensity
+- **Storm markers** — 🌪️ icon for tropical cyclones sourced from NASA EONET `severeStorms` category (National Hurricane Center & Joint Typhoon Warning Center data), color-coded by wind speed (cyan <34kt, blue 34-47kt, orange 48-63kt, red ≥64kt Typhoon)
 - **Region boundary** — dashed cyan overlay showing the monitored bounding box
 - **Click-to-select** — clicking a marker flies the map to that location and opens a styled popup with full event details
 
 ### ⏰ Automated Alert Pipeline
 - **Vercel-compatible `/api/check-disasters`** endpoint — receives cron calls every 15 minutes from [cron-job.org](https://cron-job.org)
-- **Dual-data-source fetch** — queries USGS (45-min sliding window, M2+) and NASA EONET (active fires, bbox-filtered) in parallel with `Promise.allSettled`
-- **Graceful degradation** — if one API fails or times out, the other still returns results; the endpoint never 502s on partial failure
-- **Rich Discord embeds** — color-coded (orange 🔥 for fire, red ⚠️ for quake), with location, local ICT time, magnitude, depth, coordinates, and source link
+- **Triple-data-source fetch** — queries USGS (45-min sliding window, M2+), NASA EONET wildfires (active, bbox-filtered), and NASA EONET severeStorms (active tropical cyclones) in parallel with `Promise.allSettled`
+- **Graceful degradation** — if one API fails or times out, the others still return results; the endpoint never 502s on partial failure
+- **Rich Discord embeds** — color-coded (🌪️ blue for storms, 🔥 orange for fire, ⚠️ red for quake), with location, local ICT time, magnitude/wind speed, depth, coordinates, and source link
 - **Test mode** — `?test=1` flag sends a fake M4.2 Gulf of Thailand alert to verify Discord webhook connectivity
 
 ### 📊 Event Dashboard
-- **Live stat counters** — Active Fires, Earthquakes (7d), Max Richter — update every 5 minutes
-- **Collapsible sidebar** — searchable event feed with type filter pills (All / 🔥 Fires / 🌋 Quakes)
+- **Live stat counters** — Active Fires, Earthquakes (7d), Max Richter, Active Storms — update every 5 minutes
+- **Collapsible sidebar** — searchable event feed with type filter pills (All / 🔥 Fires / 🌋 Quakes / 🌪️ Storms)
 - **Event cards** — relative time, location, source link, color-coded type badge
 - **Auto-refresh** — polls `/api/events` every 5 minutes with `useTransition` for non-blocking UI updates
 
