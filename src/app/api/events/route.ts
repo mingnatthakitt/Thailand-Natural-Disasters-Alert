@@ -1,35 +1,34 @@
+import { REGION, isInRegion } from '@/lib/api-types';
 import type { UnifiedDisasterEvent } from '@/types/events';
 
-const REGION = {
-  minLat: 4.0, maxLat: 22.5,
-  minLng: 95.0, maxLng: 107.5,
-};
+export async function GET() {
+  const [eqResult, fwResult] = await Promise.allSettled([
+    fetchEarthquakes(),
+    fetchWildfires(),
+  ]);
 
-interface USGSFeature {
-  id: string;
-  properties: {
-    mag: number;
-    place: string;
-    time: number;
-    url: string;
-    magType: string;
-  };
-  geometry: { coordinates: [number, number, number] };
+  const earthquakes = eqResult.status === 'fulfilled' ? eqResult.value : [];
+  const wildfires = fwResult.status === 'fulfilled' ? fwResult.value : [];
+
+  const errors: string[] = [
+    ...(eqResult.status === 'rejected' ? [String(eqResult.reason)] : []),
+    ...(fwResult.status === 'rejected' ? [String(fwResult.reason)] : []),
+  ];
+
+  const events = [...earthquakes, ...wildfires].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+  );
+
+  return Response.json({
+    success: errors.length === 0,
+    timestamp: new Date().toISOString(),
+    count: events.length,
+    events,
+    errors: errors.length ? errors : undefined,
+  });
 }
 
-interface EONETEvent {
-  id: string;
-  title: string;
-  description: string;
-  geometrie: { coordinates: [number, number] } | null;
-  startDate: string;
-  categories: { id: string; title: string }[];
-  sources: { id: string; url: string }[];
-}
-
-function isInRegion(lat: number, lng: number) {
-  return lat >= REGION.minLat && lat <= REGION.maxLat && lng >= REGION.minLng && lng <= REGION.maxLng;
-}
+// ─── Fetchers ─────────────────────────────────────────────────────────────────
 
 async function fetchEarthquakes(): Promise<UnifiedDisasterEvent[]> {
   const url =
@@ -40,20 +39,19 @@ async function fetchEarthquakes(): Promise<UnifiedDisasterEvent[]> {
 
   const res = await fetch(url, { next: { revalidate: 300 } });
   if (!res.ok) throw new Error(`USGS API error: ${res.status}`);
-  const data = await res.json() as { features: USGSFeature[] };
 
+  const data = await res.json() as { features: import('@/lib/api-types').USGSFeature[] };
   return data.features.map((f) => {
     const [lng, lat, depth] = f.geometry.coordinates;
-    const mag = f.properties.mag;
     const place = f.properties.place || 'Unknown location';
     return {
       id: `usgs_${f.id}`,
       type: 'earthquake' as const,
-      title: `M${mag.toFixed(1)} — ${place.split(',')[0].trim()}`,
-      description: `Magnitude ${mag.toFixed(1)} earthquake recorded in the Greater Indochina region.`,
+      title: `M${f.properties.mag.toFixed(1)} — ${place.split(',')[0].trim()}`,
+      description: `Magnitude ${f.properties.mag.toFixed(1)} earthquake recorded in the Greater Indochina region.`,
       timestamp: new Date(f.properties.time).toISOString(),
       coords: [lat, lng] as [number, number],
-      magnitude: mag,
+      magnitude: f.properties.mag,
       depth,
       link: f.properties.url,
       source: 'USGS',
@@ -68,8 +66,8 @@ async function fetchWildfires(): Promise<UnifiedDisasterEvent[]> {
     { next: { revalidate: 300 } },
   );
   if (!res.ok) throw new Error(`NASA EONET API error: ${res.status}`);
-  const data = await res.json() as { events: EONETEvent[] };
 
+  const data = await res.json() as { events: import('@/lib/api-types').EONETEvent[] };
   return data.events
     .filter((e) => {
       if (!e.geometrie) return false;
@@ -86,31 +84,9 @@ async function fetchWildfires(): Promise<UnifiedDisasterEvent[]> {
         description: e.description || `${category} detected via satellite in the Indochina region.`,
         timestamp: e.startDate,
         coords: [lat, lng] as [number, number],
-        link: e.sources?.[0]?.url || 'https://eonet.arc.nasa.gov',
+        link: e.sources?.[0]?.url || 'https://eonet.gsfc.nasa.gov',
         source: 'NASA EONET',
         locationName: e.title?.split('(')[0]?.trim() || 'Indochina region',
       };
     });
-}
-
-export async function GET() {
-  let earthquakes: UnifiedDisasterEvent[] = [];
-  let wildfires: UnifiedDisasterEvent[] = [];
-
-  try {
-    [earthquakes, wildfires] = await Promise.all([fetchEarthquakes(), fetchWildfires()]);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    return Response.json(
-      { success: false, timestamp: new Date().toISOString(), count: 0, events: [], errors: [message] },
-      { status: 502 },
-    );
-  }
-
-  const events = [...earthquakes, ...wildfires].sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-  );
-  const timestamp = new Date().toISOString();
-
-  return Response.json({ success: true, timestamp, count: events.length, events });
 }

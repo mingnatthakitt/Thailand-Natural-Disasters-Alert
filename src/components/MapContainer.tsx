@@ -64,7 +64,6 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
-  const boundaryRef = useRef<L.Rectangle | null>(null);
 
   // Initialize Leaflet map once
   useEffect(() => {
@@ -94,7 +93,7 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
       .addTo(map);
 
     // Bounding box overlay for the monitored region
-    const rect = L.rectangle(REGION_BOUNDS, {
+    L.rectangle(REGION_BOUNDS, {
       color: '#00E5FF',
       weight: 1.5,
       opacity: 0.35,
@@ -103,7 +102,6 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
       dashArray: '8 6',
       interactive: false,
     }).addTo(map);
-    boundaryRef.current = rect;
 
     mapRef.current = map;
 

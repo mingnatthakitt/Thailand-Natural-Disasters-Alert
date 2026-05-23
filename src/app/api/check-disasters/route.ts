@@ -1,31 +1,5 @@
-// ─── Region bounds ────────────────────────────────────────────────────────────
-const REGION = {
-  minLat: 4.0, maxLat: 22.5,
-  minLng: 95.0, maxLng: 107.5,
-};
-
-// ─── API types ────────────────────────────────────────────────────────────────
-interface USGSFeature {
-  id: string;
-  properties: {
-    mag: number;
-    place: string;
-    time: number;
-    url: string;
-    magType: string;
-  };
-  geometry: { coordinates: [number, number, number] };
-}
-
-interface EONETEvent {
-  id: string;
-  title: string;
-  description: string;
-  geometrie: { coordinates: [number, number] } | null;
-  startDate: string;
-  categories: { id: string; title: string }[];
-  sources: { id: string; url: string }[];
-}
+import { REGION, isInRegion, toICT } from '@/lib/api-types';
+import type { USGSFeature, EONETEvent } from '@/lib/api-types';
 
 interface DisasterEvent {
   id: string;
@@ -38,18 +12,6 @@ interface DisasterEvent {
   timestamp: string;
   link: string;
   location: string;
-}
-
-function isInRegion(lat: number, lng: number) {
-  return lat >= REGION.minLat && lat <= REGION.maxLat && lng >= REGION.minLng && lng <= REGION.maxLng;
-}
-
-function toICT(iso: string) {
-  return new Date(iso).toLocaleString('en-US', {
-    timeZone: 'Asia/Bangkok',
-    month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit', hour12: false,
-  }) + ' ICT';
 }
 
 // Build Discord embed payloads
@@ -86,8 +48,8 @@ async function fetchEarthquakes(): Promise<DisasterEvent[]> {
 
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`USGS error: ${res.status}`);
-  const data = await res.json() as { features: USGSFeature[] };
 
+  const data = await res.json() as { features: USGSFeature[] };
   return data.features.map((f) => {
     const [lng, lat, depth] = f.geometry.coordinates;
     const place = f.properties.place || 'Unknown';
@@ -111,8 +73,8 @@ async function fetchWildfires(): Promise<DisasterEvent[]> {
     { signal: AbortSignal.timeout(8000) },
   );
   if (!res.ok) throw new Error(`EONET error: ${res.status}`);
-  const data = await res.json() as { events: EONETEvent[] };
 
+  const data = await res.json() as { events: EONETEvent[] };
   return data.events
     .filter((e) => {
       if (!e.geometrie) return false;
@@ -142,7 +104,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
 
-  // Test mode: send a fake alert to verify Discord webhook is working
+  // Test mode: verify Discord webhook is working
   if (url.searchParams.get('test') === '1') {
     const testEvent: DisasterEvent = {
       id: 'test_001',
@@ -170,7 +132,7 @@ export async function GET(req: Request) {
     return Response.json({ tested: true, event: testEvent, discord: 'sent' });
   }
 
-  // Real mode: fetch with graceful failure — if one API fails, use the other
+  // Real mode: fetch with graceful failure
   const [eqResult, fwResult] = await Promise.allSettled([
     fetchEarthquakes(),
     fetchWildfires(),
@@ -179,12 +141,8 @@ export async function GET(req: Request) {
   const earthquakes = eqResult.status === 'fulfilled' ? eqResult.value : [];
   const wildfires = fwResult.status === 'fulfilled' ? fwResult.value : [];
 
-  if (eqResult.status === 'rejected') {
-    console.error('USGS fetch failed:', eqResult.reason);
-  }
-  if (fwResult.status === 'rejected') {
-    console.error('EONET fetch failed:', fwResult.reason);
-  }
+  if (eqResult.status === 'rejected') console.error('USGS failed:', eqResult.reason);
+  if (fwResult.status === 'rejected') console.error('EONET failed:', fwResult.reason);
 
   const events = [...earthquakes, ...wildfires];
   const errors: string[] = [

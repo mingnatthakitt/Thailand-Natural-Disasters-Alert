@@ -66,15 +66,11 @@ export default function Dashboard() {
   const stats = useMemo(() => {
     const fires = events.filter((e) => e.type === 'wildfire');
     const quakes = events.filter((e) => e.type === 'earthquake');
-    const avgMag =
-      quakes.length > 0
-        ? quakes.reduce((sum, q) => sum + (q.magnitude ?? 0), 0) / quakes.length
-        : 0;
     const maxMag =
       quakes.length > 0
         ? Math.max(...quakes.map((q) => q.magnitude ?? 0))
         : 0;
-    return { fires: fires.length, quakes: quakes.length, avgMag, maxMag, total: events.length };
+    return { fires: fires.length, quakes: quakes.length, maxMag, total: events.length };
   }, [events]);
 
   const handleMarkerClick = useCallback((id: string) => {
