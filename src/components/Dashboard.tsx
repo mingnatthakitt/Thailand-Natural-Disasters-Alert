@@ -124,10 +124,14 @@ export default function Dashboard() {
             color="cyan"
           />
           <StatChip
-            icon={<span style={{ fontSize: 12 }}>🌪️</span>}
+            icon={
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v20M2 12h20M5.5 5.5l13 13M18.5 5.5l-13 13" />
+              </svg>
+            }
             label="Active Storms"
             value={stats.storms}
-            color="blue"
+            color="slate"
           />
         </div>
 
@@ -190,7 +194,7 @@ export default function Dashboard() {
                         : t === 'earthquake'
                           ? 'bg-red-500/20 text-red-400 border border-red-500/30'
                           : t === 'storm'
-                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                            ? 'bg-slate-500/20 text-slate-300 border border-slate-500/30'
                             : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                       : 'bg-white/[0.03] text-slate-500 border border-transparent hover:bg-white/[0.06]'
                     }
@@ -242,7 +246,9 @@ export default function Dashboard() {
               Earthquake (M ≥ 2.0)
             </div>
             <div className="flex items-center gap-2 text-[11px] text-slate-300">
-              <span style={{ fontSize: 14, lineHeight: 1 }}>🌪️</span>
+              <span className="w-4 h-4 rounded-full bg-[#1E293B] border border-slate-400 flex items-center justify-center shadow-[0_0_4px_rgba(100,116,139,0.4)]">
+                <span className="text-[7px] font-bold text-slate-400" style={{ fontFamily: 'monospace' }}>TC</span>
+              </span>
               Tropical Cyclone
             </div>
             <div className="flex items-center gap-2 text-[11px] text-slate-300">
@@ -276,13 +282,13 @@ function StatChip({
   icon: React.ReactNode;
   label: string;
   value: number | string;
-  color: 'orange' | 'red' | 'cyan' | 'blue';
+  color: 'orange' | 'red' | 'cyan' | 'slate';
 }) {
   const colorMap = {
     orange: { bg: 'bg-orange-500/10', text: 'text-orange-400', glow: 'glow-text-orange' },
     red: { bg: 'bg-red-500/10', text: 'text-red-400', glow: 'glow-text-red' },
     cyan: { bg: 'bg-cyan-500/10', text: 'text-cyan-400', glow: 'glow-text-cyan' },
-    blue: { bg: 'bg-blue-500/10', text: 'text-blue-400', glow: 'glow-text-blue' },
+    slate: { bg: 'bg-slate-500/10', text: 'text-slate-300', glow: 'glow-text-slate' },
   };
   const c = colorMap[color];
 

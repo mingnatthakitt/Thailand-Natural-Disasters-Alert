@@ -45,7 +45,7 @@ function buildEmbeds(events: DisasterEvent[]) {
 }
 
 async function fetchEarthquakes(): Promise<DisasterEvent[]> {
-  const starttime = new Date(Date.now() - 45 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+  const starttime = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const url =
     `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${starttime}` +
     `&minlatitude=${REGION.minLat}&maxlatitude=${REGION.maxLat}` +

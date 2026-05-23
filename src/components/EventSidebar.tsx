@@ -1,6 +1,6 @@
 'use client';
 
-import { Flame, Activity, Clock, ExternalLink, MapPin, Wind } from 'lucide-react';
+import { Flame, Activity, Clock, ExternalLink, MapPin } from 'lucide-react';
 import type { UnifiedDisasterEvent } from '@/types/events';
 
 interface EventSidebarProps {
@@ -105,12 +105,12 @@ export default function EventSidebar({
                     ${isFireEvent
                       ? 'bg-orange-500/15 text-orange-400'
                       : isStormEvent
-                        ? 'bg-blue-500/15 text-blue-400'
+                        ? 'bg-slate-500/15 text-slate-300'
                         : 'bg-red-500/15 text-red-400'
                     }
                   `}
                 >
-                  {isFireEvent ? <Flame size={10} /> : isStormEvent ? <Wind size={10} /> : <Activity size={10} />}
+                  {isFireEvent ? <Flame size={10} /> : isStormEvent ? <Activity size={10} /> : <Activity size={10} />}
                   {isFireEvent ? 'Fire' : isStormEvent ? 'Storm' : `M${event.magnitude?.toFixed(1) ?? '?'}`}
                 </span>
                 <span className="text-[10px] text-slate-500 flex items-center gap-1">
