@@ -194,13 +194,17 @@ export async function GET(req: Request) {
     ...(stResult.status === 'rejected' ? [String(stResult.reason)] : []),
   ];
 
-  if (events.length > 0) {
+  // Only notify for fresh events (within last 90 minutes)
+  const FRESH_WINDOW_MS = 90 * 60 * 1000;
+  const recent = events.filter((e) => Date.now() - new Date(e.timestamp).getTime() < FRESH_WINDOW_MS);
+
+  if (recent.length > 0) {
     await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ embeds: buildEmbeds(events) }),
+      body: JSON.stringify({ embeds: buildEmbeds(recent) }),
     }).catch((e) => console.error('Discord webhook failed:', e.message));
   }
 
-  return Response.json({ checked: events.length, events, errors: errors.length ? errors : undefined });
+  return Response.json({ checked: events.length, fresh: recent.length, events, errors: errors.length ? errors : undefined });
 }
