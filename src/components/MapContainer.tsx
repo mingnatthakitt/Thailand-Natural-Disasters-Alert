@@ -50,29 +50,22 @@ function createEarthquakeIcon(mag: number) {
 }
 
 function createStormIcon(windSpeed?: number) {
-  // Color by wind speed: Typhoon ≥64kt, Severe TS 48-63kt, TS 34-47kt, TD <34kt
   const color = windSpeed != null
-    ? (windSpeed >= 64 ? '#A855F7' : windSpeed >= 48 ? '#7C3AED' : windSpeed >= 34 ? '#6B7280' : '#9CA3AF')
-    : '#6B7280';
-  const glowColor = windSpeed != null
-    ? (windSpeed >= 64 ? '#A855F7' : windSpeed >= 48 ? '#7C3AED' : '#6B7280')
-    : '#6B7280';
-  const label = windSpeed != null
-    ? (windSpeed >= 64 ? 'TYP' : windSpeed >= 48 ? 'STS' : windSpeed >= 34 ? 'TS' : 'TD')
-    : 'TC';
+    ? (windSpeed >= 64 ? '#6366F1' : windSpeed >= 48 ? '#818CF8' : windSpeed >= 34 ? '#A0AEC0' : '#CBD5E1')
+    : '#A0AEC0';
   return L.divIcon({
     className: '',
     html: `<div style="
-      width:30px;height:30px;border-radius:50%;
-      background:#1E293B;opacity:0.95;
+      width:28px;height:28px;border-radius:50%;
+      background:#1E293B;opacity:0.9;
       border:2px solid ${color};
       display:flex;align-items:center;justify-content:center;
-      font-size:8.5px;font-weight:800;letter-spacing:0.5px;
+      font-size:9px;font-weight:700;letter-spacing:0.3px;
       color:${color};font-family:monospace;
-      box-shadow:0 0 10px ${glowColor}66, 0 2px 8px rgba(0,0,0,0.4);
-    ">${label}</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+      box-shadow:0 0 10px ${color}55;
+    ">🌪️</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 }
 
@@ -168,7 +161,7 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
 
       const popupContent = `
         <div style="min-width:200px;font-family:var(--font-inter),sans-serif;">
-          <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:${event.type === 'wildfire' ? '#FF7B00' : event.type === 'storm' ? '#A78BFA' : '#FF0055'};">
+          <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:${event.type === 'wildfire' ? '#FF7B00' : event.type === 'storm' ? '#94A3B8' : '#FF0055'};">
             ${event.type === 'wildfire' ? '🔥' : event.type === 'storm' ? '🌪️' : '🌋'} ${event.title}
           </div>
           <div style="font-size:11px;color:#94A3B8;margin-bottom:8px;">

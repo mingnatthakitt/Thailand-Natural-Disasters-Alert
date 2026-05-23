@@ -90,8 +90,8 @@ export default function Dashboard() {
       <header className="glass-panel border-b border-white/[0.06] px-5 py-3 flex items-center gap-4 shrink-0 z-20">
         {/* Logo + Title */}
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-            <Shield size={16} className="text-white" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-500 to-slate-700 flex items-center justify-center shadow-lg shadow-slate-500/20">
+            <Shield size={16} className="text-slate-200" />
           </div>
           <div>
             <h1 className="text-sm font-bold text-white tracking-wide font-[family-name:var(--font-outfit)]">
