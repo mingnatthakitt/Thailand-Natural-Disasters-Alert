@@ -157,12 +157,11 @@ async function fetchStorms(): Promise<DisasterEvent[]> {
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 export async function GET(req: Request) {
-  // Validate env (bot token only — channel is auto-created per guild)
   getBotToken(); // throws if missing
 
   const url = new URL(req.url);
 
-  // Test mode: verify bot can send to all registered channels
+  // Test mode: send a test embed to all registered channels
   if (url.searchParams.get('test') === '1') {
     const testEvent: DisasterEvent = {
       id: 'test_001',
@@ -221,4 +220,54 @@ export async function GET(req: Request) {
   }
 
   return Response.json({ checked: events.length, fresh: recent.length, ...result, errors: errors.length ? errors : undefined });
+}
+
+// ─── Manual test endpoint ───────────────────────────────────────────────────────
+// POST /api/check-disasters with { channelId } in body to send a test message
+// to any channel directly — bypasses Redis registration. Useful for verifying
+// the bot works before inviting it to a server.
+export async function POST(req: Request) {
+  getBotToken();
+
+  let body: { channelId?: string; type?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  if (!body.channelId) {
+    return Response.json(
+      { error: 'Missing field: channelId. Provide a Discord channel ID to send a test message to.' },
+      { status: 400 },
+    );
+  }
+
+  const testEvent: DisasterEvent = {
+    id: 'test_manual',
+    type: body.type === 'wildfire' ? 'wildfire' : body.type === 'storm' ? 'storm' : 'earthquake',
+    title: body.type === 'wildfire'
+      ? 'Wildfire Detected — Chiang Mai Province'
+      : body.type === 'storm'
+        ? 'Typhoon — South China Sea'
+        : 'M 4.5 — Test Earthquake, Bangkok Region',
+    mag: 4.5,
+    lat: 13.7563,
+    lng: 100.5018,
+    depth: 10.0,
+    timestamp: new Date().toISOString(),
+    link: 'https://earthquake.usgs.gov/',
+    location: 'Bangkok, Thailand (Test)',
+  };
+
+  try {
+    await postToChannel(body.channelId, buildPayload([testEvent]));
+    return Response.json({
+      success: true,
+      channelId: body.channelId,
+      event: testEvent,
+    });
+  } catch (err) {
+    return Response.json({ error: `Failed to send: ${err}` }, { status: 502 });
+  }
 }
