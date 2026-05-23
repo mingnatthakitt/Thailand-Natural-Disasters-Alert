@@ -1,6 +1,6 @@
 import { REGION, isInRegion, toICT } from '@/lib/api-types';
 import type { USGSFeature, EONETEvent } from '@/lib/api-types';
-import { broadcast, getBotToken } from '@/lib/discord';
+import { broadcast, postToChannel, getBotToken } from '@/lib/discord';
 
 interface DisasterEvent {
   id: string;
@@ -45,23 +45,6 @@ function buildPayload(events: DisasterEvent[]) {
       };
     }),
   };
-}
-
-// Send message to a specific channel via Discord REST API v10
-async function postToChannel(channelId: string, payload: object): Promise<void> {
-  const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bot ${getBotToken()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Discord API ${res.status}: ${text}`);
-  }
 }
 
 async function fetchEarthquakes(): Promise<DisasterEvent[]> {
@@ -177,7 +160,7 @@ export async function GET(req: Request) {
     };
 
     try {
-      const result = await broadcast(buildPayload([testEvent]), postToChannel);
+      const result = await broadcast(buildPayload([testEvent]));
       return Response.json({ tested: true, event: testEvent, ...result });
     } catch (err) {
       return Response.json({ error: `Discord bot error: ${err}` }, { status: 502 });
@@ -212,7 +195,7 @@ export async function GET(req: Request) {
 
   let result = { sent: 0, failed: 0 };
   if (recent.length > 0) {
-    result = await broadcast(buildPayload(recent), postToChannel)
+    result = await broadcast(buildPayload(recent))
       .catch((e) => {
         console.error('Discord broadcast failed:', e.message);
         return { sent: 0, failed: 0 };

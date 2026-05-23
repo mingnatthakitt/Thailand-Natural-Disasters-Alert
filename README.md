@@ -1,6 +1,4 @@
-# Thailand Natural Disasters Alert
-
-
+# Thailand & Greater Indochina Disaster Watch
 
 [![Next.js 16](https://img.shields.io/badge/next.js-16.2-black.svg?style=flat&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![React 19](https://img.shields.io/badge/react-19-61DAFB.svg?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
@@ -10,185 +8,181 @@
 [![NASA EONET](https://img.shields.io/badge/data-NASA%20EONET-2E4057?style=flat&logo=nasa&logoColor=white)](https://eonet.gsfc.nasa.gov/)
 [![USGS](https://img.shields.io/badge/data-USGS-3E7D1C?style=flat&logo=usgs&logoColor=white)](https://earthquake.usgs.gov/)
 
-</br>
+<br>
+
 <div align="center">
-  <a href="https://vercel.com/natthakitt-prapunwattanas-projects/thailand-natural-disasters-alert">
-    <img src="https://img.shields.io/badge/Check out the dashboard-Vercel-black?style=for-the-badge&logo=vercel&logoColor=white" alt="Dash boardlink" />
-  </a>
+
+[![Dashboard](https://img.shields.io/badge/Dashboard-Vercel-black?style=for-the-badge&logo=vercel&logoColor=white)](https://thailand-natural-disasters-alert.vercel.app)
+[![Invite Bot](https://img.shields.io/badge/Discord-Invite_Bot-7289da?logo=discord&logoColor=white&style=for-the-badge)](https://discord.com/oauth2/authorize?client_id=1507757177144741978&permissions=18448&integration_type=0&scope=bot)
+
 </div>
-</br>
 
-**Near-real-time monitoring of wildfires, earthquakes, and tropical cyclones across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Malaysia.**
+<br>
 
-Powered by NASA EONET satellite thermal anomaly data and tropical cyclone feeds, USGS seismic event feeds, with instant Discord push notifications for new threats.
+Real-time monitoring and alerting for **wildfires**, **earthquakes**, and **tropical cyclones** across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Malaysia.
+
+Data sourced from **NASA EONET** (satellite thermal anomalies + cyclone tracks) and **USGS** (seismic events), with Discord push notifications to every server the bot is in.
 
 <p align="center">
-  <img src="public/dashboard.png" width="80%" />
+  <img src="public/dashboard.png" width="80%" alt="Dashboard preview" />
 </p>
 
 ---
 
-## ✨ Key Features
+## Features
 
-### 🗺️ Interactive Leaflet Map
-- **Dark CartoDB tile layer** centered on the Greater Indochina region (`95°E–107.5°E`, `4°N–22.5°N`)
-- **Fire markers** — pulsing orange radial rings for active wildfires and thermal anomalies from NASA MODIS/VIIRS satellite data
-- **Seismic markers** — size-scaled circles (M2+ earthquakes) with magnitude label, color-coded by intensity
-- **Storm markers** — 🌪️ icon for tropical cyclones sourced from NASA EONET `severeStorms` category (National Hurricane Center & Joint Typhoon Warning Center data), color-coded by wind speed (cyan <34kt, blue 34-47kt, orange 48-63kt, red ≥64kt Typhoon)
-- **Region boundary** — dashed cyan overlay showing the monitored bounding box
-- **Click-to-select** — clicking a marker flies the map to that location and opens a styled popup with full event details
+### Map
+- Leaflet map centered on Greater Indochina (`95°E–107.5°E`, `4°N–22.5°N`)
+- **Fire markers** — pulsing orange rings for wildfires from NASA MODIS/VIIRS satellite data
+- **Seismic markers** — size-scaled circles (M2+) color-coded by magnitude
+- **Storm markers** — 🌪️ icon for tropical cyclones, color-coded by wind speed (cyan <34kt → red ≥64kt Typhoon)
+- Click any marker to fly the map and open a details popup
 
-### ⏰ Automated Alert Pipeline
-- **Vercel-compatible `/api/check-disasters`** endpoint — receives cron calls every 15 minutes from [cron-job.org](https://cron-job.org)
-- **Triple-data-source fetch** — queries USGS (45-min sliding window, M2+), NASA EONET wildfires (active, bbox-filtered), and NASA EONET severeStorms (active tropical cyclones) in parallel with `Promise.allSettled`
-- **Graceful degradation** — if one API fails or times out, the others still return results; the endpoint never 502s on partial failure
-- **Rich Discord embeds** — color-coded (🌪️ blue for storms, 🔥 orange for fire, ⚠️ red for quake), with location, local ICT time, magnitude/wind speed, depth, coordinates, and source link
-- **Test mode** — `?test=1` flag sends a fake M4.2 Gulf of Thailand alert to verify Discord webhook connectivity
+### Dashboard
+- Live stat counters: Active Fires · Earthquakes (7d) · Max Magnitude · Active Storms
+- Searchable, filterable sidebar event feed (All / 🔥 Fires / 🌋 Quakes / 🌪️ Storms)
+- Auto-refresh every 5 minutes via `/api/events`
 
-### 📊 Event Dashboard
-- **Live stat counters** — Active Fires, Earthquakes (7d), Max Richter, Active Storms — update every 5 minutes
-- **Collapsible sidebar** — searchable event feed with type filter pills (All / 🔥 Fires / 🌋 Quakes / 🌪️ Storms)
-- **Event cards** — relative time, location, source link, color-coded type badge
-- **Auto-refresh** — polls `/api/events` every 5 minutes with `useTransition` for non-blocking UI updates
+### Automated Alert Pipeline
+- Cron-job.org hits `/api/check-disasters` every 15 minutes
+- Fetches USGS + NASA EONET (wildfires + severeStorms) in parallel via `Promise.allSettled`
+- Sends color-coded Discord embeds to **all registered servers** simultaneously
+- Only fresh events (≤90 min old) trigger alerts — prevents spam on ongoing events
+- Graceful degradation: if one data source fails, the others still run
 
-### 🌐 API Endpoints
+### Multi-Server Bot
+- **Zero-setup** for server admins — just invite the bot
+- Bot auto-creates `#thailand-natural-disasters-alert` in every server it joins
+- `/api/guild-sync` discovers all joined servers, creates channels, registers them in Redis
+- Call `/api/guild-sync` manually or via cron to sync new servers
+- Alerts broadcast to every registered channel at the same time
+
+---
+
+## API Endpoints
 
 | Endpoint | Method | Description |
-| :--- | :--- | :--- |
-| `/api/events` | GET | Serves all active fires + 7-day M2+ quakes for the map, sorted by timestamp |
-| `/api/check-disasters` | GET | Cron target — fetches live USGS/EONET data, sends Discord alerts if new events found |
-| `/api/check-disasters?test=1` | GET | Sends a test embed to verify Discord webhook is working |
-
-<br/>
-
----
-
-## 🛠️ Technical Stack
-
-| Layer | Technology |
-| :--- | :--- |
-| **Framework** | Next.js 16 (App Router, Turbopack) |
-| **UI** | React 19, TypeScript, Tailwind CSS 4, Lucide Icons |
-| **Map** | Leaflet.js + React-Leaflet (SSR-disabled, client-only) |
-| **Styling** | CSS custom properties, glassmorphism panels, `@tailwindcss/postcss` |
-| **Backend** | Next.js Route Handlers (Edge-compatible) |
-| **Scheduler** | cron-job.org (every 15 mins) → `/api/check-disasters` |
-| **Alert Channel** | Discord Webhooks |
-| **Deployment** | Vercel (GitHub-triggered auto-deploy) |
+|:---|:---|:---|
+| `/api/events` | GET | Map data: all active fires + 7-day M2+ earthquakes |
+| `/api/check-disasters` | GET | Cron target — fetches live data, sends Discord alerts for fresh events |
+| `/api/check-disasters?test=1` | GET | Sends a test earthquake embed to all registered channels |
+| `/api/check-disasters` | POST | Send a test embed to any specific channel ID `{ channelId, type? }` |
+| `/api/guild-sync` | GET | Syncs all bot servers — creates channels, registers in Redis |
+| `/api/guild-sync?dryrun=1` | GET | Preview all joined servers without making changes |
+| `/api/guild-sync?guildId=xxx` | GET | Sync a specific server only |
+| `/api/discord-interactions` | GET | Handles Discord Interactions Endpoint URL verification |
 
 ---
 
-## 🚀 Getting Started
+## Setup
 
-### Prerequisites
-- Node.js 20+
-- npm or bun
+### 1. Invite the Bot
 
-### Local Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/mingnatthakitt/Thailand-Natural-Disasters-Alert.git
-cd Thailand-Natural-Disasters-Alert
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-# → http://localhost:3000
+Use this OAuth link to add the bot to any server (requires **Manage Channels** permission):
+```
+https://discord.com/oauth2/authorize?client_id=1507757177144741978&permissions=18448&integration_type=0&scope=bot
 ```
 
-### Environment Variables
+### 2. Sync Servers
 
-Create a `.env.local` file (never commit this):
+After adding the bot to a server, call `/api/guild-sync` to:
+- Create `#thailand-natural-disasters-alert` in each server
+- Send a green ✅ confirmation embed to the new channel
+- Register the channel in Upstash Redis
 
-```env
-# Discord webhook — get from Discord channel → Integrations → Webhooks
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+### 3. Cron Job
 
-# Optional: Upstash Redis for server-side caching
-UPSTASH_REDIS_REST_URL=https://...
-UPSTASH_REDIS_REST_TOKEN=...
+Set up a cron job at [cron-job.org](https://cron-job.org) to call `/api/check-disasters` every 15 minutes:
+
 ```
-
-> The app works fully without Redis — the `/api/events` endpoint fetches live on each request with a 5-minute browser-level cache via Next.js `revalidate`.
+URL: https://thailand-natural-disasters-alert.vercel.app/api/check-disasters
+Schedule: */15 * * * *
+Method: GET
+```
 
 ---
 
-## ⚙️ Configuration
+## Environment Variables
 
-### Region Bounding Box
+Deploy to Vercel and set these environment variables:
 
-The monitored region covers six nations. Edit `src/lib/api-types.ts` to adjust:
+| Variable | Description |
+|:---|:---|
+| `DISCORD_BOT_TOKEN` | Your Discord bot token (from Discord Developer Portal) |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token |
 
-```typescript
-export const REGION = {
-  minLat: 4.0,   // Southern Malaysia
-  maxLat: 22.5,   // Northern Myanmar/Laos border
-  minLng: 95.0,   // Western Myanmar (Andaman Sea)
-  maxLng: 107.5,  // Eastern Laos/Vietnam border
-} as const;
-```
-
-### Alert Thresholds
-
-| Setting | Default | Location |
-| :--- | :--- | :--- |
-| **Earthquake minimum magnitude** | M2.0 | `src/app/api/check-disasters/route.ts` — `minmagnitude=2` |
-| **Earthquake time window (cron)** | 45 minutes | same — `Date.now() - 45 * 60 * 1000` |
-| **Earthquake time window (map)** | 7 days | `src/app/api/events/route.ts` |
-| **Fetch timeout** | 8 seconds | `AbortSignal.timeout(8000)` in both routes |
-| **Auto-refresh interval** | 5 minutes | `src/components/Dashboard.tsx` — `setInterval(fetchEvents, 5 * 60 * 1000)` |
-
-### cron-job.org Setup
-
-1. Create an account at [cron-job.org](https://cron-job.org)
-2. Create a new cron job:
-   - **URL**: `https://thailand-natural-disasters-alert.vercel.app/api/check-disasters`
-   - **Schedule**: `*/15 * * * *`
-   - **Method**: `GET`
-3. No headers or authorization needed — the endpoint has no auth to keep cron calls simple
+No `DISCORD_CHANNEL_ID` needed — the bot auto-creates channels in each server.
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```text
 src/
 ├── app/
 │   ├── api/
-│   │   ├── events/           # GET /api/events — map data endpoint
-│   │   └── check-disasters/  # GET /api/check-disasters — cron target + Discord alerts
-│   ├── layout.tsx            # Root layout, Google Fonts (Inter, Outfit)
-│   ├── page.tsx              # → Dashboard
-│   └── globals.css           # CSS variables, glassmorphism, Leaflet overrides, animations
+│   │   ├── check-disasters/     # Cron target + alert dispatcher
+│   │   ├── events/               # Map data endpoint (USGS + EONET)
+│   │   ├── guild-sync/          # Bot multi-guild sync
+│   │   └── discord-interactions/ # Discord URL verification only
+│   ├── layout.tsx
+│   ├── page.tsx
+│   └── globals.css
 ├── components/
-│   ├── Dashboard.tsx         # Main layout: header stats, sidebar, map container
-│   ├── EventSidebar.tsx      # Searchable, filterable event feed
-│   └── MapContainer.tsx       # Leaflet map with fire + earthquake markers
-├── lib/
-│   └── api-types.ts          # Shared REGION, isInRegion(), toICT(), USGS/EONET types
-└── types/
-    └── events.ts             # UnifiedDisasterEvent + EventsAPIResponse interfaces
+│   ├── Dashboard.tsx
+│   ├── EventSidebar.tsx
+│   └── MapContainer.tsx
+└── lib/
+    ├── discord.ts    # Bot auth, channel management, broadcast helpers
+    └── api-types.ts  # REGION bounds, isInRegion, toICT, shared types
 ```
 
 ---
 
-## ☁️ Deployment
+## Tech Stack
 
-### Vercel (Recommended)
+| Layer | Technology |
+|:---|:---|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| UI | React 19, TypeScript, Tailwind CSS 4, Lucide Icons |
+| Map | Leaflet.js + React-Leaflet (client-only, SSR disabled) |
+| Styling | CSS custom properties, glassmorphism panels |
+| Backend | Next.js Route Handlers |
+| Scheduler | cron-job.org (every 15 mins) |
+| Alert Channel | Discord Bot (REST API v10, multi-guild) |
+| Registry | Upstash Redis |
+| Deployment | Vercel (auto-deploys on push to main) |
 
-1. Push code to GitHub
-2. Import project in [Vercel Dashboard](https://vercel.com/new)
-3. Add environment variables:
-   - `DISCORD_WEBHOOK_URL`
-4. Deploy — Vercel auto-builds on every push to `main`
+---
 
-> **Important**: Set the **Framework Preset** to `Next.js` in Vercel project settings. If it's set to "Other", routing won't work.
+## Configuration
+
+### Region Bounding Box
+
+Edit `src/lib/api-types.ts`:
+
+```typescript
+export const REGION = {
+  minLat: 4.0,   // Southern Malaysia
+  maxLat: 22.5,  // Northern Myanmar/Laos
+  minLng: 95.0,   // Western Myanmar
+  maxLng: 107.5,  // Eastern Laos/Vietnam
+};
+```
+
+### Alert Thresholds
+
+| Setting | Default | Location |
+|:---|:---|:---|
+| Earthquake minimum magnitude | M2.0 | `check-disasters` route |
+| Fresh event window | 90 minutes | `check-disasters` route |
+| Earthquake map window | 7 days | `events` route |
+| Fetch timeout | 8 seconds | `AbortSignal.timeout(8000)` |
+| Auto-refresh interval | 5 minutes | `Dashboard.tsx` |
 
 ---
 
 ## ⚠️ Disclaimer
 
-*This platform is for informational and monitoring purposes only. Earthquake and wildfire data is sourced from public APIs (NASA EONET, USGS) and may have latency. Do not use this tool as the sole source for emergency decision-making.*
+This platform is for informational and monitoring purposes only. Data is sourced from public APIs (NASA EONET, USGS) and may have latency. Do not rely on this tool as the sole source for emergency decision-making.

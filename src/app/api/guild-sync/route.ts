@@ -13,8 +13,7 @@
  *   ?guildId=xxx — sync a specific guild only
  *   ?dryrun=1    — list guilds without making changes
  */
-import { ensureChannel, registerGuild, getAllChannels, getBotToken } from '@/lib/discord';
-import { toICT } from '@/lib/api-types';
+import { ensureChannel, registerGuild, getAllChannels, getBotToken, sendConfirmation } from '@/lib/discord';
 
 interface DiscordGuild {
   id: string;
@@ -23,40 +22,6 @@ interface DiscordGuild {
   owner: boolean;
   permissions: string;
   features: string[];
-}
-
-async function sendConfirmation(channelId: string, guildName: string): Promise<void> {
-  const token = getBotToken();
-  const payload = {
-    embeds: [
-      {
-        color: 0x00cc66,
-        title: '✅ Thailand Disaster Alert — Channel Active',
-        description: `This channel is now registered for real-time disaster alerts covering the Greater Indochina region.`,
-        fields: [
-          { name: 'Server', value: guildName, inline: true },
-          { name: 'Registered (ICT)', value: toICT(new Date().toISOString()), inline: true },
-          { name: 'Alerts', value: 'Earthquakes · Wildfires · Tropical Cyclones', inline: false },
-        ],
-        footer: { text: 'Thailand & Greater Indochina Disaster Watch · NASA EONET & USGS' },
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  };
-
-  const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bot ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    console.error(`[guild-sync] Failed to send confirmation to channel ${channelId}: ${res.status} ${text}`);
-  }
 }
 
 export async function GET(req: Request) {

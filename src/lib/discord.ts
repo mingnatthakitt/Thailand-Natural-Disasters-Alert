@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { toICT } from './api-types';
 
 const redis = Redis.fromEnv();
 
@@ -87,7 +88,7 @@ export async function unregisterGuild(guildId: string): Promise<void> {
 // ─── Message sending ───────────────────────────────────────────────────────────
 
 /** Send a payload to a specific channel */
-export async function sendToChannel(channelId: string, payload: object): Promise<void> {
+export async function postToChannel(channelId: string, payload: object): Promise<void> {
   const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
     method: 'POST',
     headers: {
@@ -103,11 +104,32 @@ export async function sendToChannel(channelId: string, payload: object): Promise
   }
 }
 
-/** Broadcast an alert payload to all registered channels using the provided sender function */
-export async function broadcast<T>(
-  payload: object,
-  sender: (channelId: string, payload: object) => Promise<T>,
-): Promise<{ sent: number; failed: number }> {
+/** Send a green confirmation embed when a channel is registered */
+export async function sendConfirmation(channelId: string, guildName: string): Promise<void> {
+  const payload = {
+    embeds: [{
+      color: 0x00cc66,
+      title: '✅ Thailand Disaster Alert — Channel Active',
+      description: 'This channel is registered for real-time alerts covering the Greater Indochina region.',
+      fields: [
+        { name: 'Server', value: guildName, inline: true },
+        { name: 'Registered (ICT)', value: toICT(new Date().toISOString()), inline: true },
+        { name: 'Alerts', value: 'Earthquakes · Wildfires · Tropical Cyclones', inline: false },
+      ],
+      footer: { text: 'Thailand & Greater Indochina Disaster Watch · NASA EONET & USGS' },
+      timestamp: new Date().toISOString(),
+    }],
+  };
+
+  try {
+    await postToChannel(channelId, payload);
+  } catch (err) {
+    console.error(`[Discord] Failed to send confirmation to ${channelId}: ${err}`);
+  }
+}
+
+/** Broadcast an alert payload to all registered channels */
+export async function broadcast(payload: object): Promise<{ sent: number; failed: number }> {
   const channels = await getAllChannels();
   if (channels.length === 0) {
     console.log('[Discord] No registered channels — skipping broadcast');
@@ -115,7 +137,7 @@ export async function broadcast<T>(
   }
 
   const results = await Promise.allSettled(
-    channels.map(({ channelId }) => sender(channelId, payload)),
+    channels.map(({ channelId }) => postToChannel(channelId, payload)),
   );
 
   const sent = results.filter((r) => r.status === 'fulfilled').length;
