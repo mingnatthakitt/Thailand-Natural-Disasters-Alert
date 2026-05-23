@@ -95,7 +95,7 @@ export default function Dashboard() {
           </div>
           <div>
             <h1 className="text-sm font-bold text-white tracking-wide font-[family-name:var(--font-outfit)]">
-              Siam & Greater Indochina Disaster Watch
+              Thailand & Greater Indochina Disaster Watch
             </h1>
             <p className="text-[10px] text-slate-500 -mt-0.5">
               Near-real-time hazard monitoring · NASA EONET & USGS

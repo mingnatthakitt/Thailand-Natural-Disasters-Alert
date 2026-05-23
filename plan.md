@@ -1,4 +1,4 @@
-Here is the complete, production-ready architectural plan for **Siam & Greater Indochina Disaster Watch**.
+Here is the complete, production-ready architectural plan for **Thailand & Greater Indochina Disaster Watch**.
 
 By shifting the trigger clock from GitHub Actions to **Cron-Job.org** and integrating **Upstash Redis**, we completely eliminate processing delays. This ensures you get near-real-time Discord push notifications on your phone the moment an anomaly is detected.
 

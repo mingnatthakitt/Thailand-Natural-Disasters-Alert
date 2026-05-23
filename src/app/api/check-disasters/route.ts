@@ -1,5 +1,6 @@
 import { REGION, isInRegion, toICT } from '@/lib/api-types';
 import type { USGSFeature, EONETEvent } from '@/lib/api-types';
+import { broadcast, getBotToken } from '@/lib/discord';
 
 interface DisasterEvent {
   id: string;
@@ -40,18 +41,18 @@ function buildPayload(events: DisasterEvent[]) {
         ],
         url: e.link,
         timestamp: e.timestamp,
-        footer: { text: 'Siam & Greater Indochina Disaster Watch · NASA EONET & USGS' },
+        footer: { text: 'Thailand & Greater Indochina Disaster Watch · NASA EONET & USGS' },
       };
     }),
   };
 }
 
-// Send message via Discord bot (REST API v10)
-async function sendToDiscord(channelId: string, botToken: string, payload: ReturnType<typeof buildPayload>) {
+// Send message to a specific channel via Discord REST API v10
+async function postToChannel(channelId: string, payload: object): Promise<void> {
   const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
     method: 'POST',
     headers: {
-      Authorization: `Bot ${botToken}`,
+      Authorization: `Bot ${getBotToken()}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
@@ -61,8 +62,6 @@ async function sendToDiscord(channelId: string, botToken: string, payload: Retur
     const text = await res.text().catch(() => '');
     throw new Error(`Discord API ${res.status}: ${text}`);
   }
-
-  return res.json();
 }
 
 async function fetchEarthquakes(): Promise<DisasterEvent[]> {
@@ -158,19 +157,12 @@ async function fetchStorms(): Promise<DisasterEvent[]> {
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 export async function GET(req: Request) {
-  const botToken = process.env.DISCORD_BOT_TOKEN;
-  const channelId = process.env.DISCORD_CHANNEL_ID;
-
-  if (!botToken || !channelId) {
-    return Response.json(
-      { error: 'DISCORD_BOT_TOKEN and DISCORD_CHANNEL_ID must be configured' },
-      { status: 500 },
-    );
-  }
+  // Validate env (bot token only — channel is auto-created per guild)
+  getBotToken(); // throws if missing
 
   const url = new URL(req.url);
 
-  // Test mode: verify bot can send messages
+  // Test mode: verify bot can send to all registered channels
   if (url.searchParams.get('test') === '1') {
     const testEvent: DisasterEvent = {
       id: 'test_001',
@@ -186,14 +178,14 @@ export async function GET(req: Request) {
     };
 
     try {
-      await sendToDiscord(channelId, botToken, buildPayload([testEvent]));
-      return Response.json({ tested: true, event: testEvent, discord: 'sent' });
+      const result = await broadcast(buildPayload([testEvent]), postToChannel);
+      return Response.json({ tested: true, event: testEvent, ...result });
     } catch (err) {
       return Response.json({ error: `Discord bot error: ${err}` }, { status: 502 });
     }
   }
 
-  // Real mode: fetch with graceful failure
+  // Real mode: fetch all data sources in parallel
   const [eqResult, fwResult, stResult] = await Promise.allSettled([
     fetchEarthquakes(),
     fetchWildfires(),
@@ -219,10 +211,14 @@ export async function GET(req: Request) {
   const FRESH_WINDOW_MS = 90 * 60 * 1000;
   const recent = events.filter((e) => Date.now() - new Date(e.timestamp).getTime() < FRESH_WINDOW_MS);
 
+  let result = { sent: 0, failed: 0 };
   if (recent.length > 0) {
-    await sendToDiscord(channelId, botToken, buildPayload(recent))
-      .catch((e) => console.error('Discord bot failed:', e.message));
+    result = await broadcast(buildPayload(recent), postToChannel)
+      .catch((e) => {
+        console.error('Discord broadcast failed:', e.message);
+        return { sent: 0, failed: 0 };
+      });
   }
 
-  return Response.json({ checked: events.length, fresh: recent.length, events, errors: errors.length ? errors : undefined });
+  return Response.json({ checked: events.length, fresh: recent.length, ...result, errors: errors.length ? errors : undefined });
 }

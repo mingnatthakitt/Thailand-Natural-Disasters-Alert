@@ -15,7 +15,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "Siam & Greater Indochina Disaster Watch",
+  title: "Thailand & Greater Indochina Disaster Watch",
   description:
     "Near-real-time monitoring of wildfires, earthquakes, and natural hazards across Thailand, Myanmar, Laos, Cambodia, Vietnam, and Malaysia. Powered by NASA EONET and USGS data feeds.",
   keywords: [
