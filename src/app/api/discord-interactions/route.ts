@@ -1,6 +1,16 @@
 import crypto from 'crypto';
 import { ensureChannel, registerGuild } from '@/lib/discord';
 
+/** Discord calls this GET to verify the Interactions Endpoint URL */
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const challenge = url.searchParams.get('challenge');
+  if (!challenge) {
+    return new Response('OK', { status: 200 });
+  }
+  return new Response(challenge, { status: 200 });
+}
+
 /** Verify Discord interaction request signature using HMAC-SHA256 */
 function verifySignature(body: string, signature: string, timestamp: string, publicKey: string): boolean {
   const expected = crypto
