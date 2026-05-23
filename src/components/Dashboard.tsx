@@ -34,7 +34,7 @@ export default function Dashboard() {
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'wildfire' | 'earthquake'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'wildfire' | 'earthquake' | 'storm'>('all');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [, startTransition] = useTransition();
 
@@ -66,11 +66,12 @@ export default function Dashboard() {
   const stats = useMemo(() => {
     const fires = events.filter((e) => e.type === 'wildfire');
     const quakes = events.filter((e) => e.type === 'earthquake');
+    const storms = events.filter((e) => e.type === 'storm');
     const maxMag =
       quakes.length > 0
         ? Math.max(...quakes.map((q) => q.magnitude ?? 0))
         : 0;
-    return { fires: fires.length, quakes: quakes.length, maxMag, total: events.length };
+    return { fires: fires.length, quakes: quakes.length, storms: storms.length, maxMag, total: events.length };
   }, [events]);
 
   const handleMarkerClick = useCallback((id: string) => {
@@ -122,6 +123,12 @@ export default function Dashboard() {
             value={stats.maxMag > 0 ? `M${stats.maxMag.toFixed(1)}` : '—'}
             color="cyan"
           />
+          <StatChip
+            icon={<span style={{ fontSize: 12 }}>🌪️</span>}
+            label="Active Storms"
+            value={stats.storms}
+            color="blue"
+          />
         </div>
 
         {/* Refresh + Last update */}
@@ -171,7 +178,7 @@ export default function Dashboard() {
 
             {/* Type filter pills */}
             <div className="flex gap-1.5">
-              {(['all', 'wildfire', 'earthquake'] as const).map((t) => (
+              {(['all', 'wildfire', 'earthquake', 'storm'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTypeFilter(t)}
@@ -182,12 +189,14 @@ export default function Dashboard() {
                         ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                         : t === 'earthquake'
                           ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                          : t === 'storm'
+                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                            : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
                       : 'bg-white/[0.03] text-slate-500 border border-transparent hover:bg-white/[0.06]'
                     }
                   `}
                 >
-                  {t === 'all' ? 'All Events' : t === 'wildfire' ? '🔥 Fires' : '🌋 Quakes'}
+                  {t === 'all' ? 'All Events' : t === 'wildfire' ? '🔥 Fires' : t === 'earthquake' ? '🌋 Quakes' : '🌪️ Storms'}
                 </button>
               ))}
             </div>
@@ -233,6 +242,10 @@ export default function Dashboard() {
               Earthquake (M ≥ 2.0)
             </div>
             <div className="flex items-center gap-2 text-[11px] text-slate-300">
+              <span style={{ fontSize: 14, lineHeight: 1 }}>🌪️</span>
+              Tropical Cyclone
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-slate-300">
               <span className="w-3 h-3 border border-dashed border-cyan-400/50 rounded-sm" style={{ width: 12, height: 10 }} />
               Monitored Region Boundary
             </div>
@@ -263,12 +276,13 @@ function StatChip({
   icon: React.ReactNode;
   label: string;
   value: number | string;
-  color: 'orange' | 'red' | 'cyan';
+  color: 'orange' | 'red' | 'cyan' | 'blue';
 }) {
   const colorMap = {
     orange: { bg: 'bg-orange-500/10', text: 'text-orange-400', glow: 'glow-text-orange' },
     red: { bg: 'bg-red-500/10', text: 'text-red-400', glow: 'glow-text-red' },
     cyan: { bg: 'bg-cyan-500/10', text: 'text-cyan-400', glow: 'glow-text-cyan' },
+    blue: { bg: 'bg-blue-500/10', text: 'text-blue-400', glow: 'glow-text-blue' },
   };
   const c = colorMap[color];
 

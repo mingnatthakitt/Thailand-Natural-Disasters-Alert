@@ -49,6 +49,25 @@ function createEarthquakeIcon(mag: number) {
   });
 }
 
+function createStormIcon(windSpeed?: number) {
+  const color = windSpeed != null
+    ? (windSpeed >= 64 ? '#FF0055' : windSpeed >= 48 ? '#FF6600' : windSpeed >= 34 ? '#0099FF' : '#00CCFF')
+    : '#0099FF';
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:28px;height:28px;border-radius:50%;
+      background:${color};opacity:0.9;
+      border:2px solid rgba(255,255,255,0.6);
+      display:flex;align-items:center;justify-content:center;
+      font-size:15px;line-height:1;
+      box-shadow:0 0 12px ${color}88;
+    ">🌪️</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
 function formatICT(iso: string) {
   try {
     return new Date(iso).toLocaleString('en-US', {
@@ -133,14 +152,16 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
 
       const icon = event.type === 'wildfire'
         ? createFireIcon()
-        : createEarthquakeIcon(event.magnitude ?? 2.0);
+        : event.type === 'storm'
+          ? createStormIcon(event.windSpeed)
+          : createEarthquakeIcon(event.magnitude ?? 2.0);
 
       const marker = L.marker([event.coords[0], event.coords[1]], { icon }).addTo(map);
 
       const popupContent = `
         <div style="min-width:200px;font-family:var(--font-inter),sans-serif;">
-          <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:${event.type === 'wildfire' ? '#FF7B00' : '#FF0055'};">
-            ${event.type === 'wildfire' ? '🔥' : '🌋'} ${event.title}
+          <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:${event.type === 'wildfire' ? '#FF7B00' : event.type === 'storm' ? '#0099FF' : '#FF0055'};">
+            ${event.type === 'wildfire' ? '🔥' : event.type === 'storm' ? '🌪️' : '🌋'} ${event.title}
           </div>
           <div style="font-size:11px;color:#94A3B8;margin-bottom:8px;">
             ${formatICT(event.timestamp)}
@@ -152,6 +173,7 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
             <span>Lat: ${event.coords[0].toFixed(4)}</span>
             <span>Lng: ${event.coords[1].toFixed(4)}</span>
             ${event.depth != null ? `<span>Depth: ${event.depth.toFixed(1)}km</span>` : ''}
+            ${event.windSpeed != null ? `<span>Wind: ${event.windSpeed.toFixed(0)} kt</span>` : ''}
           </div>
           <a href="${event.link}" target="_blank" rel="noopener noreferrer"
             style="display:inline-block;margin-top:8px;font-size:11px;color:#00E5FF;text-decoration:none;">

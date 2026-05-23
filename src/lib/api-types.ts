@@ -55,4 +55,7 @@ export interface EONETEvent {
   startDate: string;
   categories: { id: string; title: string }[];
   sources: { id: string; url: string }[];
+  magnitudeValue?: number;
+  magnitudeUnit?: string;
+  magnitudeDescription?: string;
 }
