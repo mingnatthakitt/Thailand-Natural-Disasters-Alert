@@ -1,32 +1,4 @@
-import { Redis } from '@upstash/redis';
-
-// ─── Auth ─────────────────────────────────────────────────────────────────────
-function authenticate(req: Request): Response | null {
-  const secret = process.env.CRON_SECRET_KEY;
-  if (!secret) {
-    return Response.json({ error: 'CRON_SECRET_KEY not configured' }, { status: 500 });
-  }
-  const auth = req.headers.get('Authorization');
-  if (!auth || auth !== `Bearer ${secret}`) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
-// ─── Redis ─────────────────────────────────────────────────────────────────────
-let redis: Redis | null = null;
-try {
-  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-    redis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    });
-  }
-} catch { /* not configured */ }
-
-const DEDUP_TTL = 86400; // 24 hours in seconds
-
-// ─── Region bounds (from plan.md) ─────────────────────────────────────────────
+// ─── Region bounds ────────────────────────────────────────────────────────────
 const REGION = {
   minLat: 4.0, maxLat: 22.5,
   minLng: 95.0, maxLng: 107.5,
@@ -61,7 +33,11 @@ function isInRegion(lat: number, lng: number) {
 }
 
 function toICT(iso: string) {
-  return new Date(iso).toLocaleString('en-US', { timeZone: 'Asia/Bangkok', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + ' ICT';
+  return new Date(iso).toLocaleString('en-US', {
+    timeZone: 'Asia/Bangkok',
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }) + ' ICT';
 }
 
 interface DisasterEvent {
@@ -78,36 +54,37 @@ interface DisasterEvent {
 }
 
 async function fetchEarthquakes(): Promise<DisasterEvent[]> {
-  // 45-min sliding window as per plan
   const starttime = new Date(Date.now() - 45 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
-  const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${starttime}&minlatitude=${REGION.minLat}&maxlatitude=${REGION.maxLat}&minlongitude=${REGION.minLng}&maxlongitude=${REGION.maxLng}&minmagnitude=2`;
+  const url =
+    `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${starttime}` +
+    `&minlatitude=${REGION.minLat}&maxlatitude=${REGION.maxLat}` +
+    `&minlongitude=${REGION.minLng}&maxlongitude=${REGION.maxLng}&minmagnitude=2`;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`USGS error: ${res.status}`);
   const data = await res.json() as { features: USGSFeature[] };
 
-  return data.features
-    .filter((f) => f.properties.mag >= 2)
-    .map((f) => {
-      const [lng, lat, depth] = f.geometry.coordinates;
-      const place = f.properties.place || 'Unknown';
-      return {
-        id: `usgs_${f.id}`,
-        type: 'earthquake' as const,
-        title: `M${f.properties.mag.toFixed(1)} — ${place.split(',')[0].trim()}`,
-        mag: f.properties.mag,
-        lat, lng, depth,
-        timestamp: new Date(f.properties.time).toISOString(),
-        link: f.properties.url,
-        location: place,
-      };
-    });
+  return data.features.map((f) => {
+    const [lng, lat, depth] = f.geometry.coordinates;
+    const place = f.properties.place || 'Unknown';
+    return {
+      id: `usgs_${f.id}`,
+      type: 'earthquake' as const,
+      title: `M${f.properties.mag.toFixed(1)} — ${place.split(',')[0].trim()}`,
+      mag: f.properties.mag,
+      lat, lng, depth,
+      timestamp: new Date(f.properties.time).toISOString(),
+      link: f.properties.url,
+      location: place,
+    };
+  });
 }
 
 async function fetchWildfires(): Promise<DisasterEvent[]> {
-  // Use bbox param per plan
   const bbox = `${REGION.minLng},${REGION.maxLat},${REGION.maxLng},${REGION.minLat}`;
-  const res = await fetch(`https://eonet.arc.nasa.gov/api/v3/events?bbox=${bbox}&status=open&category=wildfires&limit=50`);
+  const res = await fetch(
+    `https://eonet.arc.nasa.gov/api/v3/events?bbox=${bbox}&status=open&category=wildfires&limit=50`,
+  );
   if (!res.ok) throw new Error(`EONET error: ${res.status}`);
   const data = await res.json() as { events: EONETEvent[] };
 
@@ -165,16 +142,12 @@ async function notifyDiscord(events: DisasterEvent[], webhookUrl: string) {
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
-export async function GET(req: Request) {
-  const authResult = authenticate(req);
-  if (authResult) return authResult;
-
+export async function GET() {
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
   if (!webhookUrl) {
     return Response.json({ error: 'DISCORD_WEBHOOK_URL not configured' }, { status: 500 });
   }
 
-  const errors: string[] = [];
   let earthquakes: DisasterEvent[] = [];
   let wildfires: DisasterEvent[] = [];
 
@@ -182,37 +155,11 @@ export async function GET(req: Request) {
     [earthquakes, wildfires] = await Promise.all([fetchEarthquakes(), fetchWildfires()]);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    if (message) errors.push(message);
     return Response.json({ error: message }, { status: 502 });
   }
 
-  const allEvents = [...earthquakes, ...wildfires];
-  const newEvents: DisasterEvent[] = [];
+  const events = [...earthquakes, ...wildfires];
+  await notifyDiscord(events, webhookUrl);
 
-  // Deduplication check
-  if (redis) {
-    for (const event of allEvents) {
-      try {
-        const cached = await redis.get<string>(event.id);
-        if (cached) continue; // already notified
-        await redis.set(event.id, '1', { ex: DEDUP_TTL });
-        newEvents.push(event);
-      } catch {
-        newEvents.push(event); // Redis error — proceed optimistically
-      }
-    }
-  } else {
-    newEvents.push(...allEvents);
-  }
-
-  if (newEvents.length > 0) {
-    await notifyDiscord(newEvents, webhookUrl);
-  }
-
-  return Response.json({
-    checked: allEvents.length,
-    new: newEvents.length,
-    events: newEvents,
-    errors,
-  });
+  return Response.json({ checked: events.length, events });
 }
