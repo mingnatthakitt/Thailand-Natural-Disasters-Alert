@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import L from 'leaflet';
 import type { UnifiedDisasterEvent } from '@/types/events';
+import { toICT } from '@/lib/utils';
 
 interface MapContainerProps {
   events: UnifiedDisasterEvent[];
@@ -69,21 +70,11 @@ function createStormIcon(windSpeed?: number) {
   });
 }
 
-function formatICT(iso: string) {
-  try {
-    return new Date(iso).toLocaleString('en-US', {
-      timeZone: 'Asia/Bangkok',
-      month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-      hour12: false,
-    }) + ' ICT';
-  } catch { return iso; }
-}
-
 export default function MapContainer({ events, selectedEventId, onMarkerClick }: MapContainerProps) {
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showRegionInfo, setShowRegionInfo] = useState(false);
 
   // Initialize Leaflet map once
   useEffect(() => {
@@ -165,7 +156,7 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
             ${event.type === 'wildfire' ? '🔥' : event.type === 'storm' ? '🌪️' : '🌋'} ${event.title}
           </div>
           <div style="font-size:11px;color:#94A3B8;margin-bottom:8px;">
-            ${formatICT(event.timestamp)}
+            ${toICT(event.timestamp)}
           </div>
           <div style="font-size:11.5px;line-height:1.5;color:#CBD5E1;margin-bottom:8px;">
             ${event.description}
@@ -207,8 +198,21 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
     <div
       ref={containerRef}
       id="disaster-map"
-      className="w-full h-full rounded-xl overflow-hidden"
+      className="w-full h-full rounded-xl overflow-hidden relative"
       style={{ zIndex: 0 }}
-    />
+      onMouseEnter={() => setShowRegionInfo(true)}
+      onMouseLeave={() => setShowRegionInfo(false)}
+    >
+      {/* Region info overlay */}
+      <div
+        className="absolute top-4 right-4 z-20 region-overlay"
+        style={{ opacity: showRegionInfo ? 1 : 0.6 }}
+      >
+        <div className="font-semibold text-cyan-400/80">Monitored Region</div>
+        <div className="text-[10px] mt-1 opacity-70">
+          4°N–22.5°N, 95°E–107.5°E
+        </div>
+      </div>
+    </div>
   );
 }

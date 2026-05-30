@@ -1,5 +1,5 @@
 import { Redis } from '@upstash/redis';
-import { toICT } from './api-types';
+import { toICT } from './utils';
 
 const redis = Redis.fromEnv();
 
@@ -16,7 +16,7 @@ export function getBotToken(): string {
 
 // ─── REST helpers ────────────────────────────────────────────────────────────────
 
-async function discordFetch(path: string, options: RequestInit = {}): Promise<unknown> {
+export async function discordFetch(path: string, options: RequestInit = {}): Promise<unknown> {
   const res = await fetch(`https://discord.com/api/v10${path}`, {
     ...options,
     headers: {
@@ -34,32 +34,24 @@ async function discordFetch(path: string, options: RequestInit = {}): Promise<un
   return res.json();
 }
 
-// ─── Channel management ─────────────────────────────────────────────────────────
-
-/** Create or find the disaster alert channel in a guild */
-export async function ensureChannel(guildId: string, guildName: string): Promise<string> {
-  // 1. List existing channels to find our channel
-  const existingChannels = (await discordFetch(
-    `/guilds/${guildId}/channels`,
-    { method: 'GET' },
-  )) as Array<{ id: string; name: string; type: number }>;
-
-  const existing = existingChannels.find((c) => c.name === CHANNEL_NAME && c.type === 0);
-  if (existing) return existing.id;
-
-  // 2. Create the channel
-  const created = await discordFetch(`/guilds/${guildId}/channels`, {
+/** Send a payload to a specific channel */
+export async function postToChannel(channelId: string, payload: object): Promise<void> {
+  const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({
-      name: CHANNEL_NAME,
-      topic: `Real-time disaster alerts for the Greater Indochina region (Thailand, Myanmar, Laos, Cambodia, Vietnam, Malaysia). Powered by NASA EONET & USGS.`,
-      type: 0, // GUILD_TEXT
-    }),
-  }) as { id: string };
+    headers: {
+      Authorization: `Bot ${getBotToken()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
 
-  console.log(`[Discord] Created #${CHANNEL_NAME} in guild ${guildId} (${guildName})`);
-  return created.id;
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Discord API ${res.status}: ${text}`);
+  }
 }
+
+// ─── Guild / channel registry (Redis) ──────────────────────────────────────────
 
 /** Register a guild's alert channel in Redis */
 export async function registerGuild(guildId: string, channelId: string): Promise<void> {
@@ -77,7 +69,6 @@ export async function getAllChannels(): Promise<Array<{ guildId: string; channel
 
 /** Remove a guild from Redis (when bot leaves) */
 export async function unregisterGuild(guildId: string): Promise<void> {
-  // Find and remove the guild's entry
   const all = await redis.smembers(GUILD_CHANNEL_KEY);
   const toRemove = all.filter((m) => m.startsWith(`${guildId}:`));
   if (toRemove.length > 0) {
@@ -85,24 +76,30 @@ export async function unregisterGuild(guildId: string): Promise<void> {
   }
 }
 
-// ─── Message sending ───────────────────────────────────────────────────────────
+/** Create or find the disaster alert channel in a guild */
+export async function ensureChannel(guildId: string, guildName: string): Promise<string> {
+  const existingChannels = (await discordFetch(
+    `/guilds/${guildId}/channels`,
+    { method: 'GET' },
+  )) as Array<{ id: string; name: string; type: number }>;
 
-/** Send a payload to a specific channel */
-export async function postToChannel(channelId: string, payload: object): Promise<void> {
-  const res = await fetch(`https://discord.com/api/v10/channels/${channelId}/messages`, {
+  const existing = existingChannels.find((c) => c.name === CHANNEL_NAME && c.type === 0);
+  if (existing) return existing.id;
+
+  const created = await discordFetch(`/guilds/${guildId}/channels`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bot ${getBotToken()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
+    body: JSON.stringify({
+      name: CHANNEL_NAME,
+      topic: `Real-time disaster alerts for the Greater Indochina region (Thailand, Myanmar, Laos, Cambodia, Vietnam, Malaysia). Powered by NASA EONET & USGS.`,
+      type: 0, // GUILD_TEXT
+    }),
+  }) as { id: string };
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Discord API ${res.status}: ${text}`);
-  }
+  console.log(`[Discord] Created #${CHANNEL_NAME} in guild ${guildId} (${guildName})`);
+  return created.id;
 }
+
+// ─── Message sending ───────────────────────────────────────────────────────────
 
 /** Send a green confirmation embed when a channel is registered */
 export async function sendConfirmation(channelId: string, guildName: string): Promise<void> {

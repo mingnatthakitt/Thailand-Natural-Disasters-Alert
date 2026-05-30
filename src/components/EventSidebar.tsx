@@ -2,6 +2,7 @@
 
 import { Flame, Activity, Clock, ExternalLink, MapPin } from 'lucide-react';
 import type { UnifiedDisasterEvent } from '@/types/events';
+import { toICT, relativeTime } from '@/lib/utils';
 
 interface EventSidebarProps {
   events: UnifiedDisasterEvent[];
@@ -9,31 +10,6 @@ interface EventSidebarProps {
   onSelect: (id: string) => void;
   searchQuery: string;
   typeFilter: 'all' | 'wildfire' | 'earthquake' | 'storm';
-}
-
-function formatICT(iso: string) {
-  try {
-    return new Date(iso).toLocaleString('en-US', {
-      timeZone: 'Asia/Bangkok',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }) + ' ICT';
-  } catch {
-    return iso;
-  }
-}
-
-function relativeTime(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
 }
 
 export default function EventSidebar({
@@ -71,7 +47,7 @@ export default function EventSidebar({
       </div>
 
       {/* Scrollable event list */}
-      <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2">
+      <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-0 smooth-scroll">
         {filtered.length === 0 && (
           <div className="text-center py-12 text-slate-500 text-sm">
             <Activity size={28} className="mx-auto mb-3 opacity-30" />
@@ -79,14 +55,15 @@ export default function EventSidebar({
           </div>
         )}
 
-        {filtered.map((event) => {
+        {filtered.map((event, index) => {
           const isSelected = event.id === selectedEventId;
           const isFireEvent = event.type === 'wildfire';
           const isStormEvent = event.type === 'storm';
 
           return (
-            <button
-              key={event.id}
+            <div key={event.id}>
+              {index > 0 && <div className="event-separator" />}
+              <button
               onClick={() => onSelect(event.id)}
               className={`
                 w-full text-left rounded-lg p-3 transition-all duration-200
@@ -103,14 +80,14 @@ export default function EventSidebar({
                   className={`
                     inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full
                     ${isFireEvent
-                      ? 'bg-orange-500/15 text-orange-400'
+                      ? 'bg-orange-500/15 text-orange-400 badge-fire'
                       : isStormEvent
-                        ? 'bg-slate-500/15 text-slate-300'
-                        : 'bg-red-500/15 text-red-400'
+                        ? 'bg-purple-500/15 text-purple-300 badge-storm'
+                        : 'bg-red-500/15 text-red-400 badge-quake'
                     }
                   `}
                 >
-                  {isFireEvent ? <Flame size={10} /> : isStormEvent ? <Activity size={10} /> : <Activity size={10} />}
+                  {isFireEvent ? <Flame size={10} /> : <Activity size={10} />}
                   {isFireEvent ? 'Fire' : isStormEvent ? 'Storm' : `M${event.magnitude?.toFixed(1) ?? '?'}`}
                 </span>
                 <span className="text-[10px] text-slate-500 flex items-center gap-1">
@@ -133,7 +110,7 @@ export default function EventSidebar({
               {/* Footer: time + link */}
               <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-white/[0.05]">
                 <span className="text-[10px] text-slate-500">
-                  {formatICT(event.timestamp)}
+                  {toICT(event.timestamp)}
                 </span>
                 <a
                   href={event.link}
@@ -146,6 +123,7 @@ export default function EventSidebar({
                 </a>
               </div>
             </button>
+            </div>
           );
         })}
       </div>

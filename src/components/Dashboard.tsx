@@ -74,6 +74,11 @@ export default function Dashboard() {
     return { fires: fires.length, quakes: quakes.length, storms: storms.length, maxMag, total: events.length };
   }, [events]);
 
+  // Determine data freshness
+  const isFresh = lastUpdate
+    ? Date.now() - new Date(lastUpdate).getTime() < 5 * 60 * 1000
+    : false;
+
   const handleMarkerClick = useCallback((id: string) => {
     setSelectedEventId(id);
   }, []);
@@ -101,6 +106,14 @@ export default function Dashboard() {
               Near-real-time hazard monitoring · NASA EONET & USGS
             </p>
           </div>
+        </div>
+
+        {/* Live status indicator */}
+        <div className="hidden md:flex items-center gap-2 ml-6 px-3 py-1.5 rounded-full glass-panel">
+          <div className={`live-dot ${isFresh ? '' : 'stale'}`} />
+          <span className="text-[10px] font-medium text-slate-400">
+            {isFresh ? 'Live' : 'Stale'}
+          </span>
         </div>
 
         {/* Stat counters */}
@@ -148,7 +161,7 @@ export default function Dashboard() {
             className="p-2 rounded-lg glass-panel hover:bg-white/[0.06] transition-all duration-200 disabled:opacity-40"
             title="Refresh data"
           >
-            <RefreshCw size={14} className={`text-slate-400 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw size={14} className={`${loading ? 'spin-slow' : ''} text-slate-400`} />
           </button>
         </div>
       </header>
