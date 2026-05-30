@@ -168,10 +168,19 @@ export default function Dashboard() {
 
       {/* ─── Main Content ─── */}
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Sidebar */}
+        {/* Map Area */}
+        <main className="flex-1 relative">
+          <MapContainer
+            events={mapEvents}
+            selectedEventId={selectedEventId}
+            onMarkerClick={handleMarkerClick}
+          />
+        </main>
+
+        {/* Sidebar — placed AFTER main so it renders on top in flex layout */}
         <aside
           className={`
-            shrink-0 glass-panel border-r border-white/[0.06] flex flex-col
+            shrink-0 glass-panel border-l border-white/[0.06] flex flex-col
             transition-all duration-300 ease-in-out
             ${sidebarOpen ? 'w-80' : 'w-0'}
           `}
@@ -253,11 +262,11 @@ export default function Dashboard() {
             {/* Sidebar toggle */}
             <button
               onClick={() => setSidebarOpen((prev) => !prev)}
-              className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-auto p-1.5 rounded-r-lg glass-panel
-                border border-l-0 border-white/[0.08] hover:bg-white/[0.06] transition-all duration-200"
-              style={{ left: sidebarOpen ? '320px' : '0px', transition: 'left 0.3s ease-in-out' }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-auto p-1.5 rounded-l-lg glass-panel
+                border border-r-0 border-white/[0.08] hover:bg-white/[0.06] transition-all duration-200"
+              style={{ right: sidebarOpen ? '320px' : '0px', transition: 'right 0.3s ease-in-out' }}
             >
-              {sidebarOpen ? <ChevronLeft size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+              {sidebarOpen ? <ChevronRight size={12} className="text-slate-400" /> : <ChevronLeft size={12} className="text-slate-400" />}
             </button>
 
             {/* Region info */}
