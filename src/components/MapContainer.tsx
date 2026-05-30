@@ -199,14 +199,13 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
       ref={containerRef}
       id="disaster-map"
       className="w-full h-full rounded-xl overflow-hidden relative"
-      style={{ zIndex: 0 }}
       onMouseEnter={() => setShowRegionInfo(true)}
       onMouseLeave={() => setShowRegionInfo(false)}
     >
-      {/* Region info overlay */}
+      {/* Region info overlay — z-30 puts it above Leaflet controls (z-400+) */}
       <div
-        className="absolute top-4 right-4 z-20 region-overlay"
-        style={{ opacity: showRegionInfo ? 1 : 0.6 }}
+        className="absolute top-4 right-4 z-30 region-overlay pointer-events-none"
+        style={{ opacity: showRegionInfo ? 1 : 0.5 }}
       >
         <div className="font-semibold text-cyan-400/80">Monitored Region</div>
         <div className="text-[10px] mt-1 opacity-70">

@@ -69,7 +69,7 @@ export default function EventSidebar({
                 w-full text-left rounded-lg p-3 transition-all duration-200
                 glass-panel-hover cursor-pointer group
                 ${isSelected
-                  ? 'bg-white/[0.08] border border-cyan-500/30 shadow-[0_0_15px_rgba(0,229,255,0.1)]'
+                  ? 'bg-cyan-950/40 border border-cyan-500/50 shadow-[0_0_20px_rgba(0,229,255,0.15)] ring-1 ring-cyan-500/20'
                   : 'glass-panel'
                 }
               `}
@@ -97,7 +97,7 @@ export default function EventSidebar({
               </div>
 
               {/* Title */}
-              <h3 className="text-xs font-medium text-slate-200 leading-snug mb-1 line-clamp-2 group-hover:text-white">
+              <h3 className={`text-xs font-medium leading-snug mb-1 line-clamp-2 transition-colors ${isSelected ? 'text-cyan-100' : 'text-slate-200 group-hover:text-white'}`}>
                 {event.title}
               </h3>
 
