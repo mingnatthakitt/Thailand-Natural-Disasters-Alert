@@ -201,12 +201,14 @@ export default function Dashboard() {
         </button>
 
         {/* Map Area */}
-        <main className="flex-1 relative">
-          <MapContainer
-            events={mapEvents}
-            selectedEventId={selectedEventId}
-            onMarkerClick={handleMarkerClick}
-          />
+        <main className="flex-1 relative overflow-hidden">
+          <div className="absolute inset-0">
+            <MapContainer
+              events={mapEvents}
+              selectedEventId={selectedEventId}
+              onMarkerClick={handleMarkerClick}
+            />
+          </div>
 
           {/* Region info */}
           <div className="absolute top-4 right-4 z-20 region-overlay pointer-events-none">
