@@ -112,6 +112,12 @@ export default function Dashboard() {
           <span className="text-[10px] font-medium text-slate-400">{isFresh ? 'Live' : 'Stale'}</span>
         </div>
 
+        {/* Region info — in header so it's always visible */}
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full glass-panel">
+          <div className="text-[10px] text-cyan-400/70 font-medium">Region:</div>
+          <div className="text-[10px] text-slate-400">4°N–22.5°N, 95°E–107.5°E</div>
+        </div>
+
         {/* Stat counters */}
         <div className="hidden md:flex items-center gap-4 ml-auto mr-4">
           <StatChip
@@ -173,6 +179,29 @@ export default function Dashboard() {
           `}
           style={{ overflow: sidebarOpen ? undefined : 'hidden' }}
         >
+          {/* Legend — in sidebar so it's always visible above map */}
+          <div className="px-3 pt-3 pb-2 border-b border-white/[0.05]">
+            <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Legend</div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1">
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-[0_0_4px_rgba(255,123,0,0.5)]" />
+                Active Fire
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_4px_rgba(255,0,85,0.5)]" />
+                Earthquake
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
+                <span className="w-4 h-4 rounded-full bg-[#1E293B] border border-slate-500 flex items-center justify-center text-[6px] text-slate-400">TC</span>
+                Cyclone
+              </div>
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-300">
+                <span className="w-2.5 h-2 border border-dashed border-cyan-400/50" />
+                Region
+              </div>
+            </div>
+          </div>
+
           {/* Search + Filters */}
           <div className="px-3 pt-3 pb-2 space-y-2 border-b border-white/[0.05]">
             {/* Search input */}
@@ -242,29 +271,6 @@ export default function Dashboard() {
             selectedEventId={selectedEventId}
             onMarkerClick={handleMarkerClick}
           />
-
-          {/* Floating legend */}
-          <div className="absolute bottom-4 left-4 glass-panel rounded-lg px-3 py-2.5 z-10 space-y-1.5">
-            <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">Legend</div>
-            <div className="flex items-center gap-2 text-[11px] text-slate-300">
-              <span className="w-3 h-3 rounded-full bg-orange-500 shadow-[0_0_6px_rgba(255,123,0,0.5)]" />
-              Active Fire / Thermal Anomaly
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-slate-300">
-              <span className="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_6px_rgba(255,0,85,0.5)]" />
-              Earthquake (M ≥ 2.0)
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-slate-300">
-              <span className="w-4 h-4 rounded-full bg-[#1E293B] border border-slate-400 flex items-center justify-center shadow-[0_0_4px_rgba(100,116,139,0.4)]">
-                <span className="text-[7px] font-bold text-slate-400" style={{ fontFamily: 'monospace' }}>TC</span>
-              </span>
-              Tropical Cyclone
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-slate-300">
-              <span className="w-3 h-3 border border-dashed border-cyan-400/50 rounded-sm" style={{ width: 12, height: 10 }} />
-              Monitored Region Boundary
-            </div>
-          </div>
 
           {/* Loading overlay */}
           {loading && events.length === 0 && (
