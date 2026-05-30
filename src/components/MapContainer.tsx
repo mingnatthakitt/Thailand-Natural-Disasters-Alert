@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import L from 'leaflet';
 import type { UnifiedDisasterEvent } from '@/types/events';
 import { toICT } from '@/lib/utils';
@@ -74,7 +74,6 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
-  const [showRegionInfo, setShowRegionInfo] = useState(false);
 
   // Initialize Leaflet map once
   useEffect(() => {
@@ -150,30 +149,53 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
 
       const marker = L.marker([event.coords[0], event.coords[1]], { icon }).addTo(map);
 
+      const typeColor = event.type === 'wildfire' ? '#FF7B00' : event.type === 'storm' ? '#A78BFA' : '#FF0055';
+      const typeEmoji = event.type === 'wildfire' ? '🔥' : event.type === 'storm' ? '🌪️' : '🌋';
+
       const popupContent = `
-        <div style="min-width:200px;font-family:var(--font-inter),sans-serif;">
-          <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:${event.type === 'wildfire' ? '#FF7B00' : event.type === 'storm' ? '#94A3B8' : '#FF0055'};">
-            ${event.type === 'wildfire' ? '🔥' : event.type === 'storm' ? '🌪️' : '🌋'} ${event.title}
+        <div style="
+          min-width:220px;
+          padding:16px;
+          font-family:var(--font-inter),sans-serif;
+          background:rgba(15,18,25,0.95);
+          border:1px solid rgba(255,255,255,0.1);
+          border-radius:12px;
+          backdrop-filter:blur(16px);
+          box-shadow:0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,229,255,0.1);
+        ">
+          <div style="
+            font-weight:700;font-size:13px;margin-bottom:4px;
+            color:${typeColor};
+            display:flex;align-items:center;gap:6px;
+          ">
+            <span>${typeEmoji}</span>
+            <span style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${event.title}</span>
           </div>
-          <div style="font-size:11px;color:#94A3B8;margin-bottom:8px;">
+          <div style="font-size:10px;color:#64748B;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.06);">
             ${toICT(event.timestamp)}
           </div>
-          <div style="font-size:11.5px;line-height:1.5;color:#CBD5E1;margin-bottom:8px;">
+          <div style="font-size:11.5px;line-height:1.5;color:#CBD5E1;margin-bottom:12px;">
             ${event.description}
           </div>
-          <div style="display:flex;gap:12px;font-size:10.5px;color:#64748B;">
-            <span>Lat: ${event.coords[0].toFixed(4)}</span>
-            <span>Lng: ${event.coords[1].toFixed(4)}</span>
-            ${event.depth != null ? `<span>Depth: ${event.depth.toFixed(1)}km</span>` : ''}
-            ${event.windSpeed != null ? `<span>Wind: ${event.windSpeed.toFixed(0)} kt</span>` : ''}
+          <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:10px;color:#64748B;">
+            <span style="background:rgba(255,255,255,0.05);padding:3px 8px;border-radius:4px;">
+              📍 ${event.coords[0].toFixed(3)}°N ${event.coords[1].toFixed(3)}°E
+            </span>
+            ${event.depth != null ? `<span style="background:rgba(255,0,85,0.1);padding:3px 8px;border-radius:4px;color:#FF0055;">${event.depth.toFixed(1)} km</span>` : ''}
+            ${event.windSpeed != null ? `<span style="background:rgba(167,139,250,0.1);padding:3px 8px;border-radius:4px;color:#A78BFA;">${event.windSpeed.toFixed(0)} kt</span>` : ''}
           </div>
           <a href="${event.link}" target="_blank" rel="noopener noreferrer"
-            style="display:inline-block;margin-top:8px;font-size:11px;color:#00E5FF;text-decoration:none;">
-            View Source ↗
+            style="
+              display:inline-flex;align-items:center;gap:4px;
+              margin-top:12px;padding-top:10px;
+              font-size:11px;color:#00E5FF;text-decoration:none;
+              border-top:1px solid rgba(255,255,255,0.06);
+            ">
+            View Source <span style="font-size:10px;">↗</span>
           </a>
         </div>
       `;
-      marker.bindPopup(popupContent, { maxWidth: 280, closeButton: true });
+      marker.bindPopup(popupContent, { maxWidth: 300, closeButton: true });
       marker.on('click', () => onMarkerClick(event.id));
       markersRef.current.set(event.id, marker);
     }
@@ -198,20 +220,7 @@ export default function MapContainer({ events, selectedEventId, onMarkerClick }:
     <div
       ref={containerRef}
       id="disaster-map"
-      className="w-full h-full rounded-xl overflow-hidden relative"
-      onMouseEnter={() => setShowRegionInfo(true)}
-      onMouseLeave={() => setShowRegionInfo(false)}
-    >
-      {/* Region info overlay — z-30 puts it above Leaflet controls (z-400+) */}
-      <div
-        className="absolute top-4 right-4 z-30 region-overlay pointer-events-none"
-        style={{ opacity: showRegionInfo ? 1 : 0.5 }}
-      >
-        <div className="font-semibold text-cyan-400/80">Monitored Region</div>
-        <div className="text-[10px] mt-1 opacity-70">
-          4°N–22.5°N, 95°E–107.5°E
-        </div>
-      </div>
-    </div>
+      className="w-full h-full rounded-xl overflow-hidden"
+    />
   );
 }

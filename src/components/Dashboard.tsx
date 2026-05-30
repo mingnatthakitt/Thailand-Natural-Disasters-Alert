@@ -247,6 +247,14 @@ export default function Dashboard() {
             onMarkerClick={handleMarkerClick}
           />
 
+          {/* Region info overlay */}
+          <div className="absolute top-4 right-4 z-10 region-overlay pointer-events-none">
+            <div className="font-semibold text-cyan-400/80">Monitored Region</div>
+            <div className="text-[10px] mt-1 opacity-70">
+              4°N–22.5°N, 95°E–107.5°E
+            </div>
+          </div>
+
           {/* Floating legend */}
           <div className="absolute bottom-4 left-4 glass-panel rounded-lg px-3 py-2.5 z-10 space-y-1.5">
             <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1">Legend</div>
