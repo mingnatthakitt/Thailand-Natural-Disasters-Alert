@@ -76,6 +76,23 @@ export async function unregisterGuild(guildId: string): Promise<void> {
   }
 }
 
+// ─── Alert dedup (first-seen per event id) ─────────────────────────────────────
+
+const ALERT_DEDUP_KEY = 'alert:sent';
+const ALERT_DEDUP_TTL_SECONDS = 7 * 24 * 60 * 60; // match USGS 7-day fetcher window
+
+/** Returns true if we've already alerted on this event id. */
+export async function hasAlerted(eventId: string): Promise<boolean> {
+  const exists = await redis.sismember(ALERT_DEDUP_KEY, eventId);
+  return exists === 1;
+}
+
+/** Mark an event as alerted. No-op if already marked. */
+export async function markAlerted(eventId: string): Promise<void> {
+  await redis.sadd(ALERT_DEDUP_KEY, eventId);
+  await redis.expire(ALERT_DEDUP_KEY, ALERT_DEDUP_TTL_SECONDS);
+}
+
 /** Create or find the disaster alert channel in a guild */
 export async function ensureChannel(guildId: string, guildName: string): Promise<string> {
   const existingChannels = (await discordFetch(

@@ -1,4 +1,4 @@
-import { broadcast, getBotToken, postToChannel } from '@/lib/discord';
+import { broadcast, getBotToken, postToChannel, hasAlerted, markAlerted } from '@/lib/discord';
 import { fetchEarthquakes, fetchWildfires, fetchStorms, buildPayload } from '@/lib/disaster-fetchers';
 import type { DisasterEvent } from '@/lib/disaster-fetchers';
 
@@ -52,17 +52,34 @@ export async function GET(req: Request) {
     ...(stResult.status === 'rejected' ? [String(stResult.reason)] : []),
   ];
 
-  // Only notify for fresh events (within last 90 minutes)
-  const FRESH_WINDOW_MS = 90 * 60 * 1000;
+  // Freshness window: configurable via env var for testing.
+  // Default 90 minutes matches the 15-min cron cadence (6 chances per event).
+  // Set FRESH_WINDOW_MINUTES to e.g. 10080 (= 7 days) to force-broadcast every
+  // event currently in the fetcher window. Useful for verifying the alert path.
+  const FRESH_WINDOW_MS = (Number(process.env.FRESH_WINDOW_MINUTES) || 90) * 60 * 1000;
   const recent = events.filter((e) => Date.now() - new Date(e.timestamp).getTime() < FRESH_WINDOW_MS);
 
   let result = { sent: 0, failed: 0 };
   if (recent.length > 0) {
-    result = await broadcast(buildPayload(recent))
-      .catch((e) => {
-        console.error('Discord broadcast failed:', e.message);
-        return { sent: 0, failed: 0 };
-      });
+    // First-seen dedup: only alert for events we've never alerted on.
+    // Survives missed cron runs and temporarily failing fetchers.
+    const unseen = (
+      await Promise.all(
+        recent.map(async (e) => ((await hasAlerted(e.id)) ? null : e)),
+      )
+    ).filter((e): e is DisasterEvent => e !== null);
+
+    if (unseen.length > 0) {
+      try {
+        result = await broadcast(buildPayload(unseen));
+        // Mark only after a successful broadcast attempt. Errors from
+        // broadcast() are caught below so they won't reach markAlerted.
+        await Promise.all(unseen.map((e) => markAlerted(e.id)));
+      } catch (e) {
+        console.error('Discord broadcast failed:', (e as Error).message);
+        result = { sent: 0, failed: 0 };
+      }
+    }
   }
 
   return Response.json({ checked: events.length, fresh: recent.length, ...result, errors: errors.length ? errors : undefined });
